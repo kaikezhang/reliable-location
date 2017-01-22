@@ -14,7 +14,13 @@ object Visualizer {
   def jsonEncode(sol: LocationSolution) = {
     val demandPointsList = sol.instance.demandPoints.map { x => x.toJArray }.toList
     val openFacilitiesList = sol.openDCs.map { x => x.toJArray }.toList
-    val json = ("demandPoints" -> JArray(demandPointsList))  ~ 
+    val json = 
+               ("numberofNodes" -> demandPointsList.size) ~
+               ("numberofOpen" -> openFacilitiesList.size) ~
+               ("solutionTime" -> sol.time) ~
+               ("solver" -> sol.solver) ~
+               ("objectiveValue" -> sol.objValue) ~
+               ("demandPoints" -> JArray(demandPointsList))  ~ 
                ("openFacilities" ->  JArray(openFacilitiesList)) ~ 
                ("assignments" -> JArray(sol.assignments.toList.map(x => JArray( List(JInt(x._2.index), JInt(x._1.index) ) ) ) ) )
     

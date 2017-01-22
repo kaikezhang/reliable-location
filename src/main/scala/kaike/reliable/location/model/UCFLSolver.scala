@@ -8,7 +8,7 @@ import ilog.cplex.CpxException
 import scala.util.control.NonFatal
 import kaike.reliable.location.data.LocationSolution
 
-class UFLPSolver(instance: ProblemInstance, instructor: SolverInstructor) {
+class UCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) extends Solver("UCFL"){
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   val distanceMap = instance.distanceMap
@@ -40,15 +40,17 @@ class UFLPSolver(instance: ProblemInstance, instructor: SolverInstructor) {
       }
 
       cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
-
+      val begin = System.currentTimeMillis()
       if (cplex.solve()) {
+        val end = System.currentTimeMillis()
         val openValues = candidateDCs.map { dc => (dc, cplex.getValue(open(dc))) }.toMap
         val openDCs = openValues.filter(p => p._2 > 0.5).keys.toSeq
         val assignments = (for (demand <- demands; dc <- candidateDCs)
           yield ((demand, dc), cplex.getValue(assign(demand, dc)))
         ).toMap.filter(p => p._2 > 0.5).keys.toSeq
         
-        ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments))
+        ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments, 
+            time = 1.0 * (end - begin) /1000, solver = this.SOLVER_NAME, objValue = cplex.getObjValue().toInt ))
       }
 
     } catch {

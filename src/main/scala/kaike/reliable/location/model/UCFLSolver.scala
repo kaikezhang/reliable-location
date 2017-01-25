@@ -11,7 +11,11 @@ import kaike.reliable.location.data.LocationSolution
 class UCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) extends Solver("UCFL"){
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
-  val distanceMap = instance.distanceMap
+  
+  val demandIndexes = instance.demandsPointIndexes
+  val locationIndexes = instance.candidateLocationIndexes
+  
+  val distance = instance.distance
 
   def solve(): Option[LocationSolution] = {
     var ret: Option[LocationSolution] = None
@@ -19,38 +23,39 @@ class UCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) extend
     val cplex = new IloCplex()
 
     try {
-      val open = candidateDCs.map { x => (x, cplex.boolVar()) }.toMap
-      val assign = (for (demand <- demands; dc <- candidateDCs) yield ((demand, dc), cplex.boolVar())).toMap
+      val open = Array.tabulate(candidateDCs.size)( i => cplex.boolVar() )
+      val assign = Array.tabulate(demands.size, candidateDCs.size)((i, j) => {cplex.boolVar()})
 
       //      val objective = 
-      val locationCosts = candidateDCs.map { dc => cplex.prod(dc.fixedCosts, open(dc)) }.fold(cplex.numExpr())(cplex.sum)
-      val transportationCosts = (for (demand <- demands; dc <- candidateDCs)
-        yield cplex.prod(demand.demand * distanceMap(demand, dc), assign(demand, dc))).fold(cplex.numExpr())(cplex.sum)
+      val locationCosts = locationIndexes.map { j => cplex.prod(candidateDCs(j).fixedCosts, open(j)) }.fold(cplex.numExpr())(cplex.sum)
+      
+      val transportationCosts = (for (i <- demandIndexes; j <- locationIndexes)
+        yield cplex.prod(demands(i).demand * distance(i)(j), assign(i)(j))).fold(cplex.numExpr())(cplex.sum)
 
       val objective = cplex.sum(locationCosts, transportationCosts)
       cplex.addMinimize(objective)
       
-      demands.foreach { demand => {
-        val left = candidateDCs.map { dc => assign(demand, dc) }.fold(cplex.numExpr())(cplex.sum)
+      demandIndexes.foreach { i => {
+        val left = locationIndexes.map { j => assign(i)(j) }.fold(cplex.numExpr())(cplex.sum)
         cplex.addGe(left, 1)
       } }
       
-      for(dc <- candidateDCs; demand <- demands) {
-        cplex.addLe(assign(demand, dc), open(dc)) 
+      for(i <- demandIndexes; j <- locationIndexes ) {
+        cplex.addLe(assign(i)(j), open(j)) 
       }
 
       cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
       val begin = System.currentTimeMillis()
       if (cplex.solve()) {
         val end = System.currentTimeMillis()
-        val openValues = candidateDCs.map { dc => (dc, cplex.getValue(open(dc))) }.toMap
+        val openValues = locationIndexes.map { j => (candidateDCs(j), cplex.getValue(open(j))) }.toMap
         val openDCs = openValues.filter(p => p._2 > 0.5).keys.toSeq
-        val assignments = (for (demand <- demands; dc <- candidateDCs)
-          yield ((demand, dc), cplex.getValue(assign(demand, dc)))
+        val assignments = (for (i <- demandIndexes; j <- locationIndexes)
+          yield ((demands(i), candidateDCs(j)), cplex.getValue(assign(i)(j)))
         ).toMap.filter(p => p._2 > 0.5).keys.toSeq
         
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments, 
-            time = 1.0 * (end - begin) /1000, solver = this.SOLVER_NAME, objValue = cplex.getObjValue().toInt ))
+            time = 1.0 * (end - begin) /1000, solver = this.SOLVER_NAME, objValue = Math.round(cplex.getObjValue()) ))
       }
 
     } catch {

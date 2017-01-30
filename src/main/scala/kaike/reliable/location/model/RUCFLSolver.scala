@@ -21,7 +21,9 @@ class RUCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) exten
   val failrate = instance.failRate
   
   val demandIndexes = instance.demandsPointIndexes
-  val locationIndexes = instance.candidateLocationIndexes  
+  val locationIndexes = instance.candidateLocationIndexes
+  
+  var nbCuts = 0
 
   class SuperModularCutLazyConstraint(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) extends LazyConstraintCallback {
     def main(): Unit = {
@@ -71,6 +73,7 @@ class RUCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) exten
         }
       }
 //      println("Adding cut")
+      nbCuts = nbCuts + 1
       add(cplex.ge(cplex.diff(phi, cut), 0))
     }
   }
@@ -111,7 +114,7 @@ class RUCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) exten
 //        })
 
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this.SOLVER_NAME, objValue = Math.round(cplex.getObjValue()) ))
+          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()) ))
       }
 
     } catch {

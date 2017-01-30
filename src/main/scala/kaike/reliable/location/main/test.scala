@@ -17,8 +17,8 @@ object test {
     val instance = ProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 
-    val model = new RUCFLSolver(instance, instructor)
-//    val model = new UCFLSolver(instance, instructor)
+//    val model = new RUCFLSolver(instance, instructor)
+    val model = new UCFLSolver(instance, instructor)
     
     model.solve() match {
       case Some(sol) => Visualizer.post(sol)

@@ -36,7 +36,11 @@ class CandidateLocation(val index: Int, val fixedCosts: Double,  override val la
   def toJArray() = JArray(List(JInt(index), JDouble(lat), JDouble(lng)))
 }
 
-case class Parameter(alpha:Double = 1, theta:Double = 400)
+case class Parameter(alpha:Double = 1, theta:Double = 400){
+  override def toString() = {
+    s"Alpha = ${alpha}\nTheta = ${theta}"
+  }
+}
 
 case class ProblemInstance( demandPoints: IndexedSeq[DemandPoint],  candidateLocations: IndexedSeq[CandidateLocation], parameter: Parameter = Parameter()){
   val demandsPointIndexes = 0 until demandPoints.size

@@ -13,12 +13,12 @@ object test {
   
   def main(args: Array[String]): Unit = {
     val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
-    val parameter = Parameter(alpha = 1 )
+    val parameter = Parameter(alpha = 1.5 )
     val instance = ProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 
-//    val model = new RUCFLSolver(instance, instructor)
-    val model = new UCFLSolver(instance, instructor)
+    val model = new RUCFLSolver(instance, instructor)
+//    val model = new UCFLSolver(instance, instructor)
     
     model.solve() match {
       case Some(sol) => Visualizer.post(sol)

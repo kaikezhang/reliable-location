@@ -17,7 +17,7 @@ object InstanceReader {
       val emergencyCost = numberStrings(2).toDouble
       val fixedCost = numberStrings(3).toDouble
       val lat = numberStrings(4).toDouble
-      val lng = - numberStrings(5).toDouble
+      val lng = - numberStrings(5).toDouble // negative convert to standard longitude 
       demands += new DemandPoint(index, demand, emergencyCost, lat, lng)
       candidateDCs += new CandidateLocation(index, fixedCost, lat, lng)
       

@@ -7,23 +7,31 @@ import org.json4s.JsonAST.JDouble
 case class Coordinate(val lat: Double, val lng: Double);
 
 object GeoComputer {
-  def distance(coord1: Coordinate, coord2: Coordinate): Double = {
-        val x1 = Math.toRadians(coord1.lat);
-        val y1 = Math.toRadians(coord1.lng);
-        val x2 = Math.toRadians(coord2.lat);
-        val y2 = Math.toRadians(coord2.lng);
-        
-        if(Math.abs(x1 - x2) < 10E-6 && Math.abs(y1 - y2) < 10E-6)
-          return 0
-        // great circle distance in radians
-        var angle1 = Math.acos(Math.sin(x1) * Math.sin(x2)
-                      + Math.cos(x1) * Math.cos(x2) * Math.cos(y1 - y2));
+  def distance(coord1: Coordinate, coord2: Coordinate): Double = {    
+    def deg2rad( deg: Double) = { (deg * Math.PI / 180); }
+    
+    def rad2deg(rad : Double) = { (rad * 180 / Math.PI); }
 
-        // convert back to degrees
-        angle1 = Math.toDegrees(angle1);
+    val lat1 = coord1.lat;
+    val lng1 = coord1.lng;
+    val lat2 = coord2.lat;
+    val lng2 = coord2.lng;    
 
-        // each degree on a great circle of Earth is 60 nautical miles
-        60 * angle1;
+    var theta = 0.0; var dist = 0.0;
+    theta = lng1 - lng2;
+    val deta_lon = lng1 - lng2;
+    val deta_lat = lat1 - lat2;
+  
+    if (Math.abs(deta_lon) + Math.abs(deta_lat) < 0.001) {
+      return 0.0;
+    }
+  
+    dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) +
+           Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+    dist = Math.acos(dist);
+    dist = rad2deg(dist);
+    dist = dist * 60 * 1.1515;
+    dist;    
         
   }
 }
@@ -63,7 +71,7 @@ case class ProblemInstance( demandPoints: IndexedSeq[DemandPoint],  candidateLoc
 //    (location, Math.min(1, 0.1 * beta * Math.exp(-(GeoComputer.distance(location, newOrleans) / theta))))
 //  } }.toMap
   
-  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.1 * beta * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * beta * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
   
 //  failrate.values.foreach { println  }
 }

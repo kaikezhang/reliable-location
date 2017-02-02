@@ -13,7 +13,7 @@ object test {
   
   def main(args: Array[String]): Unit = {
     val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
-    val parameter = Parameter(alpha = 1.5 )
+    val parameter = Parameter(alpha = 1 )
     val instance = ProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 

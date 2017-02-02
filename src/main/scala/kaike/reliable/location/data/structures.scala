@@ -8,30 +8,27 @@ case class Coordinate(val lat: Double, val lng: Double);
 
 object GeoComputer {
   def distance(coord1: Coordinate, coord2: Coordinate): Double = {    
-    def deg2rad( deg: Double) = { (deg * Math.PI / 180); }
+
+    val lat1 = Math.toRadians(coord1.lat);
+    val lng1 = Math.toRadians(coord1.lng);
+    val lat2 = Math.toRadians(coord2.lat);
+    val lng2 = Math.toRadians(coord2.lng);
+    val theta = lng1 - lng2;
+
+    var dist = 0.0;
     
-    def rad2deg(rad : Double) = { (rad * 180 / Math.PI); }
-
-    val lat1 = coord1.lat;
-    val lng1 = coord1.lng;
-    val lat2 = coord2.lat;
-    val lng2 = coord2.lng;    
-
-    var theta = 0.0; var dist = 0.0;
-    theta = lng1 - lng2;
-    val deta_lon = lng1 - lng2;
+    val deta_lng = lng1 - lng2;
     val deta_lat = lat1 - lat2;
   
-    if (Math.abs(deta_lon) + Math.abs(deta_lat) < 0.001) {
+    if (Math.abs(deta_lng) + Math.abs(deta_lat) < 1E-6) {
       return 0.0;
     }
   
-    dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) +
-           Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+    dist = Math.sin(lat1) * Math.sin(lat2) +
+           Math.cos(lat1) * Math.cos(lat2) * Math.cos(theta);
     dist = Math.acos(dist);
-    dist = rad2deg(dist);
-    dist = dist * 60 * 1.1515;
-    dist;    
+    dist = dist.toDegrees;
+    dist * 60 * 1.1515;    
         
   }
 }

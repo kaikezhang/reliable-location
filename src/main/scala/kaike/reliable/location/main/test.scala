@@ -6,15 +6,15 @@ import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.model.UCFLSolver
 import kaike.reliable.location.output.Visualizer
 import kaike.reliable.location.model.RUCFLSolver
-import kaike.reliable.location.data.Parameter
-import kaike.reliable.location.data.ProblemInstance
+import kaike.reliable.location.data.ReliableLocationParameter
+import kaike.reliable.location.data.ReliableLocationProblemInstance
 
 object test {
   
   def main(args: Array[String]): Unit = {
     val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
-    val parameter = Parameter(alpha = 1 )
-    val instance = ProblemInstance(demands, dcs, parameter)
+    val parameter = ReliableLocationParameter(alpha = 1 )
+    val instance = ReliableLocationProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 
     val model = new RUCFLSolver(instance, instructor)

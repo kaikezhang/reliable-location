@@ -1,6 +1,6 @@
 package kaike.reliable.location.model
 
-import kaike.reliable.location.data.ProblemInstance
+import kaike.reliable.location.data.ReliableLocationProblemInstance
 import kaike.reliable.location.data.SolverInstructor
 import ilog.cplex.IloCplex
 import kaike.reliable.location.data.LocationSolution
@@ -13,7 +13,7 @@ import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
 
-class RUCFLSolver(instance: ProblemInstance, instructor: SolverInstructor) extends Solver("RUCFL") {
+class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor: SolverInstructor) extends Solver("RUCFL") {
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

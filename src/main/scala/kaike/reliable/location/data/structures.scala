@@ -41,35 +41,82 @@ class CandidateLocation(val index: Int, val fixedCosts: Double,  override val la
   def toJArray() = JArray(List(JInt(index), JDouble(lat), JDouble(lng)))
 }
 
-case class Parameter(alpha:Double = 1, theta:Double = 400){
+case class ReliableLocationParameter(alpha:Double = 1, theta:Double = 400){
   override def toString() = {
     s"Alpha = ${alpha}\nTheta = ${theta}"
   }
 }
 
-case class ProblemInstance( demandPoints: IndexedSeq[DemandPoint],  candidateLocations: IndexedSeq[CandidateLocation], parameter: Parameter = Parameter()){
+case class CrossMonmentParameter(beta: Double = 1, theta:Double = 400) {
+  override def toString() = {
+    s"Beta = ${beta}\nTheta = ${theta}"
+  }  
+}
+
+class ProblemInstance(val demandPoints: IndexedSeq[DemandPoint],  val candidateLocations: IndexedSeq[CandidateLocation]) {
   val demandsPointIndexes = 0 until demandPoints.size
-  val candidateLocationIndexes = 0 until candidateLocations.size
+  val candidateLocationIndexes = 0 until candidateLocations.size  
   
-  val beta = parameter.alpha
+  // compute distance matrix in miles
+  val distance = Array.tabulate(demandPoints.length, candidateLocations.length)((i,j) => {
+    GeoComputer.distance(demandPoints(i), candidateLocations(j))
+  })
+}
+
+case class ReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  override val candidateLocations: IndexedSeq[CandidateLocation], 
+    parameter: ReliableLocationParameter = ReliableLocationParameter()) extends ProblemInstance(demandPoints, candidateLocations){
+
+  val alpha = parameter.alpha
   val theta = parameter.theta
   
   val newOrleans = Coordinate(30.07, -89.93)
+  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+
+}
+
+class Scenario(val failures:Set[Int], var prob:Double)
   
-  // compute distance matrix in miles
-  val distance = Array.ofDim[Double](demandPoints.length, candidateLocations.length)
-  for(i <- demandsPointIndexes; j <- candidateLocationIndexes){
-    distance(i)(j)  = GeoComputer.distance(demandPoints(i), candidateLocations(j))
+case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],  override val candidateLocations: IndexedSeq[CandidateLocation], 
+    parameter: CrossMonmentParameter = CrossMonmentParameter()) extends ProblemInstance(demandPoints, candidateLocations) {
+  val beta = parameter.beta
+  val theta = parameter.theta
+  val newOrleans = Coordinate(30.07, -89.93)
+  val failRate = candidateLocationIndexes.map { i => Math.min(1, beta * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  
+  private val candidateDistance = Array.tabulate(candidateLocations.length, candidateLocations.length)((i,j) => {
+    GeoComputer.distance(candidateLocations(i), candidateLocations(j))
+  })
+
+  private val nearestLoc = candidateLocationIndexes.map(i => candidateLocationIndexes.filter(j => j != i).minBy(j => candidateDistance(i)(j)) )
+  
+  val crossMonmentMatrix = Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+    if(i == j)
+      failRate(i)
+    else if(j == nearestLoc(i) || i == nearestLoc(j)){
+      failRate(i) * failRate(j) / beta
+    } else
+      -1
+  })
+  
+  crossMonmentMatrix.foreach { x => println(x.mkString("[", ", ", "]")) }
+  
+  val nbRealizations = candidateLocations.size
+  
+  def generateRandomScenario(): Scenario = {
+    val failures = candidateLocationIndexes.filter { j => Math.random() > 0.5 }.toSet
+    new Scenario(failures, 0)
   }
   
-//  val distanceMap = (for(demand <- demandPoints; dc <- candidateLocations) yield ((demand,dc), GeoComputer.distance(demand, dc))) toMap
+  def generateSingletonScenario(i: Int): Scenario = {
+    val failures = candidateLocationIndexes.filter { j => j == i }.toSet
+    new Scenario(failures, 0)    
+  }
   
-//  val failrate = candidateLocations.map { location => {
-//    (location, Math.min(1, 0.1 * beta * Math.exp(-(GeoComputer.distance(location, newOrleans) / theta))))
-//  } }.toMap
+  val realizations = (0 until nbRealizations).map(i => 
+//    generateSingletonScenario(i)
+    generateRandomScenario()
+  )
   
-  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * beta * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
-  
-//  failrate.values.foreach { println  }
 }
+
 

@@ -105,7 +105,7 @@ case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[Dem
       failRate(i)
     else if(j == nearestLoc(i) || i == nearestLoc(j)){
       failRate(i) * failRate(j) / beta
-      -1
+//      -1
     } else
       -1
   })

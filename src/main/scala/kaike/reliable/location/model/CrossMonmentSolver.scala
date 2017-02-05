@@ -147,7 +147,10 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         time = timeUsed, solver = this, objValue = Math.round(upperBound) ))      
 
     } catch {
-      case e: CpxException => println("Cplex exception caught: " + e);
+      case e: CpxException => {
+        println("Cplex exception caught: " + e);
+        e.printStackTrace()
+      }
       case NonFatal(e)     => println("exception caught: " + e);
     } finally {
       cuttingPlaneMainProblem.end()
@@ -223,7 +226,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
     val pi = demandIndexes.map { i => pricingModel.numVar(-Double.MaxValue, Double.MaxValue) }
     val xi = locationIndexes.map { i => pricingModel.boolVar() }
     val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0)
-      yield ((j1, j2), pricingModel.numVar(-1, 1))).toMap
+      yield ((j1, j2), pricingModel.numVar(0, 1))).toMap
 
     for (i <- demandIndexes; j <- locationIndexes) {
       var lhs = pricingModel.numExpr()
@@ -253,7 +256,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       val unboundedModel = new IloCplex()
       val xi = locationIndexes.map { j => unboundedModel.boolVar() }
       val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0)
-      yield ((j1, j2), unboundedModel.numVar(-1, 1))).toMap
+      yield ((j1, j2), unboundedModel.numVar(0, 1))).toMap
 
       for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
         unboundedModel.addLe(lambda(j1, j2), xi(j1))
@@ -275,6 +278,8 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         }
         unboundedReducedCostLinearExpr.clear()
         unboundedReducedCostLinearExpr.setConstant(rayMap.getOrElse(alpha, 0.0))
+        
+//        println(s"Ray alpha -- ${rayMap.getOrElse(alpha, 0.0)}")
         for (j <- locationIndexes) {
           unboundedReducedCostLinearExpr.addTerm(rayMap.getOrElse(beta(j), 0.0), xi(j))
         }
@@ -282,10 +287,12 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
           unboundedReducedCostLinearExpr.addTerm(rayMap.getOrElse(betabar(j1, j2), 0.0), lambda(j1, j2))
         }
 
+        unboundedReducedCost.setExpr(unboundedReducedCostLinearExpr)
         unboundedModel.solve()
 
         if (unboundedModel.getStatus() == IloCplex.Status.Optimal) {
           if (unboundedModel.getObjValue() < 1E-6) {
+//            println(s"${unboundedModel.getObjValue()}")
             val xiValues = xi.map { xi_i => (unboundedModel.getValue(xi_i) + 0.5).toInt }
             val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
 
@@ -303,6 +310,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
 
             return new Scenario(failurePattern.toSet, 0.0)
           } else {
+            println(s"UnboundedModel status: ${unboundedModel.getStatus}")
             println("Should not come here Erro 002x1")
           }
         }
@@ -320,6 +328,9 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
             scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
           })
           InitialFeasibleScenarios = scenarios.filter { x => x.prob > 0 }.toArray
+//          InitialFeasibleScenarios.foreach{ x =>
+//            println(s"${x.failures} with prob ${x.prob}")
+//          }
           break
         } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded || 
             modelZsepDual.getStatus == IloCplex.Status.InfeasibleOrUnbounded) {
@@ -364,25 +375,33 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
           ReducedCostExpr.addTerm(-1.0 * betabarValues(j1, j2), lambda(j1, j2))
         }
 
+        ReducedCost.setExpr(ReducedCostExpr)
         pricingModel.solve()
 
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
+//          println(s"Pricing problem objective value: ${pricingModel.getObjValue}")
           if (pricingModel.getObjValue() > 1E-6) {
             val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i) }
             val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
             ret = Option(new Scenario(failurePattern.toSet, 0.0))
+          } else {
+//            println("Pricing problem has non positive objective value.")
           }
         } else {
+          println(s"PricingModel status: ${pricingModel.getStatus}")
           println("Should not come here Error 01TX")
         }
         ret
       }
 
+      if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
       solvePricingProblem() match {
         case Some(scenario) => {
           modelZsepDualAddCutForScenario(scenario)
         }
         case _ => break
+      }} else {
+        break
       }
 
     }}

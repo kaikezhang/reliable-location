@@ -11,7 +11,7 @@ import kaike.reliable.location.data.RobustLocationProblemInstance
 
 object RobustMain {
   def main(args: Array[String]): Unit = {
-    val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
+    val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData20.txt")
     val parameter = ReliableLocationParameter(alpha = 0.1, theta = 400)
     val instance = RobustLocationProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()

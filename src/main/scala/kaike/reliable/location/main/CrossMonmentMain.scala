@@ -12,8 +12,8 @@ import kaike.reliable.location.data.CrossMonmentProblemInstance
 
 object CrossMonmentMain {
   def main(args: Array[String]): Unit = {
-    val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData10.txt")
-    val parameter = CrossMonmentParameter()
+    val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData20.txt")
+    val parameter = CrossMonmentParameter(beta = 0.1, theta = 400)
     val instance = CrossMonmentProblemInstance(demands, dcs, parameter)
     val instructor = SolverInstructor(gap = 0.000001)
 

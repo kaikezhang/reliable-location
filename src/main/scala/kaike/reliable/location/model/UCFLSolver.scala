@@ -55,7 +55,7 @@ class UCFLSolver(instance: ReliableLocationProblemInstance, instructor: SolverIn
         ).toMap.filter(p => p._2 > 0.5).keys.toSeq
         
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments, 
-            time = 1.0 * (end - begin) /1000, solver = this, objValue = Math.round(cplex.getObjValue()) ))
+            time = 1.0 * (end - begin) /1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = cplex.getMIPRelativeGap ))
       }
 
     } catch {

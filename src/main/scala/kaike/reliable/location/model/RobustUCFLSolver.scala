@@ -142,9 +142,12 @@ class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instruct
         val assignments = demandIndexes.map { i => {
           (demands(i), candidateDCs(openIndexes.minBy { j => distance(i)(j) }) )
         } }.toSeq
-        
+ 
+        if(lowerBound < cplex.getBestObjValue)
+          lowerBound = cplex.getBestObjValue
+          
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()) ))
+          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = (upperBound - lowerBound) / lowerBound))
       }
 
     } catch {

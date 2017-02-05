@@ -141,10 +141,10 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       
       val assignments = demandIndexes.map { i => {
           (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
-        } }.toSeq
+        } }.toSeq        
       
       ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
-        time = timeUsed, solver = this, objValue = Math.round(upperBound) ))      
+        time = timeUsed, solver = this, objValue = Math.round(upperBound), (upperBound - lowerBound)/ lowerBound))      
 
     } catch {
       case e: CpxException => {

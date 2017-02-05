@@ -24,11 +24,14 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
   val locationIndexes = instance.candidateLocationIndexes
   
   var nbCuts = 0
+  
+  var upperBound = Double.MaxValue
+  var lowerBound = 0.0    
 
   class SuperModularCutLazyConstraint(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) extends LazyConstraintCallback {
     def main(): Unit = {
       val openValues = open.map { x => getValue(x) }
-      val setupCosts = locationIndexes.map { j => openValues(j) * candidateDCs(j).fixedCosts }
+      val setupCosts = locationIndexes.map { j => openValues(j) * candidateDCs(j).fixedCosts }.sum
       
       val openDCIndexes = locationIndexes.filter(j => openValues(j) > 0.5)   
       val orderedOpenDCs = demandIndexes.map { i =>
@@ -56,10 +59,27 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
       }
       
       val solutionTrspCosts = computeTransporationCosts(orderedOpenDCs)
-//      println(s"Transportation costs: ${solutionTrspCosts}")
 
+      val clb = getBestObjValue()
+      val cub = setupCosts + solutionTrspCosts
+      
       val phiValue = getValue(phi)
+      if (lowerBound < clb) 
+        lowerBound = clb
 
+      if (upperBound > cub) 
+        upperBound = cub
+
+      if (lowerBound > 0) {
+        if (((upperBound - lowerBound) / lowerBound) < instructor.gap) {
+          println("No cut is added due to gap limit reached.")
+          abort()
+          return 
+        }
+      }      
+
+      if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) { return }
+      
       if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) { return }
 
       var cut = cplex.sum(solutionTrspCosts, cplex.numExpr())
@@ -72,7 +92,7 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
           cut = cplex.sum(cut, cplex.prod(computeTransporationCosts(orderedDCsAddDC) - solutionTrspCosts, open(j) ))
         }
       }
-//      println("Adding cut")
+      
       nbCuts = nbCuts + 1
       add(cplex.ge(cplex.diff(phi, cut), 0))
     }
@@ -102,19 +122,15 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
         val openIndexes = openValues.filter(p => p._2 > 0.5).keys.toSeq
         val openDCs = openIndexes.map { j => candidateDCs(j) }
 
-        //        val assignments = (for (demand <- demands; dc <- candidateDCs)
-        //          yield ((demand, dc), cplex.getValue(assign(demand, dc)))
-        //        ).toMap.filter(p => p._2 > 0.5).keys.toSeq
         val assignments = demandIndexes.map { i => {
           (demands(i), candidateDCs(openIndexes.minBy { j => distance(i)(j) }) )
         } }.toSeq
-        
-//        openDCs.foreach(dc => {
-//          println(failrate(dc))
-//        })
-
+     
+        if(lowerBound < cplex.getBestObjValue)
+          lowerBound = cplex.getBestObjValue
+          
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()) ))
+          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = (upperBound - lowerBound) / lowerBound ))
       }
 
     } catch {

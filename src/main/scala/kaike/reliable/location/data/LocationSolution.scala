@@ -7,4 +7,5 @@ case class LocationSolution(instance: ProblemInstance,
                             assignments: Seq[(DemandPoint, CandidateLocation)], 
                             time:Double,
                             solver:Solver,
-                            objValue:Double);
+                            objValue:Double,
+                            gap: Double);

@@ -12,6 +12,7 @@ import scalaj.http._
 import kaike.reliable.location.model.RUCFLSolver
 import kaike.reliable.location.model.CrossMonmentSolver
 import scala.util.control.NonFatal
+import kaike.reliable.location.model.RobustUCFLSolver
 
 object Visualizer {
   def jsonEncode(sol: LocationSolution) = {
@@ -31,6 +32,8 @@ object Visualizer {
       case rculpSolver: RUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case rculpSolver: CrossMonmentSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+        ("nbCuts" -> rculpSolver.nbCuts)
+      case rculpSolver: RobustUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case _ =>
     }

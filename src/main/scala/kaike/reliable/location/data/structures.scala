@@ -74,6 +74,17 @@ case class ReliableLocationProblemInstance( override val demandPoints: IndexedSe
 
 }
 
+case class RobustLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  override val candidateLocations: IndexedSeq[CandidateLocation], 
+    parameter: ReliableLocationParameter = ReliableLocationParameter()) extends ProblemInstance(demandPoints, candidateLocations){
+  
+  val alpha = parameter.alpha
+  val theta = parameter.theta
+  
+  val newOrleans = Coordinate(30.07, -89.93)
+  val failRate = candidateLocationIndexes.map { i => Math.min(1,  alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+
+}
+
 class Scenario(val failures:Set[Int], var prob:Double)
   
 case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],  override val candidateLocations: IndexedSeq[CandidateLocation], 
@@ -94,6 +105,7 @@ case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[Dem
       failRate(i)
     else if(j == nearestLoc(i) || i == nearestLoc(j)){
       failRate(i) * failRate(j) / beta
+      -1
     } else
       -1
   })

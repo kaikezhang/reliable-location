@@ -39,9 +39,9 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
   var InitialFeasibleScenarios = Array.empty[Scenario]
 
   var overallBeginTime: Double = _
-  var openDCs = Seq.empty[CandidateLocation]
+  var openDCs = Seq.empty[Int]
 
-  def timeUsed: Double = {
+  def timeUsed(): Double = {
     1.0 * (System.currentTimeMillis() - overallBeginTime) / 1000
   }
   def timeLeft(): Double = {
@@ -101,7 +101,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
 
           if (upperBound > cub) {
             println(s"Upper bound updated: ${upperBound} -> ${cub}")
-            openDCs = openLocs.map { i => candidateDCs(i) }.toSeq
+            openDCs = openLocs
             upperBound = cub
           }
 
@@ -139,13 +139,16 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       println(s"Upper bound: ${upperBound} -- Lower bound: ${lowerBound}")
       // conclude solution status
       
-      ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = Seq.empty,
+      val assignments = demandIndexes.map { i => {
+          (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
+        } }.toSeq
+      
+      ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
         time = timeUsed, solver = this, objValue = Math.round(upperBound) ))      
 
     } catch {
       case e: CpxException => println("Cplex exception caught: " + e);
       case NonFatal(e)     => println("exception caught: " + e);
-      case _: Throwable    =>
     } finally {
       cuttingPlaneMainProblem.end()
     }
@@ -212,9 +215,6 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
     }
       
 
-
-
-
     // build pricing model
 
     val pricingModel = new IloCplex()
@@ -227,8 +227,9 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
 
     for (i <- demandIndexes; j <- locationIndexes) {
       var lhs = pricingModel.numExpr()
+      val pi_eff = if(openLocs.contains(j)) -distance(i)(j) * demands(i).demand else -demands(i).emergencyCost * demands(i).demand
       lhs = pricingModel.sum(lhs, pi(i))
-      lhs = pricingModel.sum(lhs, pricingModel.prod(-distance(i)(j) * demands(i).demand, pricingModel.diff(1, xi(j))))
+      lhs = pricingModel.sum(lhs, pricingModel.prod(pi_eff, pricingModel.diff(1, xi(j))))
       lhs = pricingModel.sum(lhs, pricingModel.prod(-demands(i).emergencyCost * demands(i).demand, xi(j)))
       pricingModel.addLe(lhs, 0)
     }
@@ -318,9 +319,10 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
           (0 until Cuts.size).foreach(i => {
             scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
           })
-          InitialFeasibleScenarios = scenarios.toArray
+          InitialFeasibleScenarios = scenarios.filter { x => x.prob > 0 }.toArray
           break
-        } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded) {
+        } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded || 
+            modelZsepDual.getStatus == IloCplex.Status.InfeasibleOrUnbounded) {
           val scenario = generateInfeasibilityCut()
           modelZsepDualAddCutForScenario(scenario)
         } else {
@@ -345,8 +347,6 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
 
       modelZsepDual.solve()
       
-      sepDual_objValue = modelZsepDual.getObjValue()
-
       def solvePricingProblem(): Option[Scenario] = {
         var ret: Option[Scenario] = None
         val alphaValue = modelZsepDual.getValue(alpha)
@@ -355,12 +355,12 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         ReducedCostExpr.setConstant(-1.0 * alphaValue)
 
         for (j <- locationIndexes) {
-          ReducedCostExpr.remove(beta(j))
+          ReducedCostExpr.remove(xi(j))
           ReducedCostExpr.addTerm(-1.0 * betaValues(j), xi(j))
         }
 
         for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
-          ReducedCostExpr.remove(betabar(j1, j2))
+          ReducedCostExpr.remove(lambda(j1, j2))
           ReducedCostExpr.addTerm(-1.0 * betabarValues(j1, j2), lambda(j1, j2))
         }
 

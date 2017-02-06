@@ -8,7 +8,7 @@ import ilog.cplex.CpxException
 import scala.util.control.NonFatal
 import kaike.reliable.location.data.LocationSolution
 
-class UCFLSolver(instance: ReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UCFL"){
+class UCFLSolver(instance: ReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UCFL MIP Model"){
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

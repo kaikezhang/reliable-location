@@ -14,7 +14,7 @@ import kaike.reliable.location.model.CrossMonmentSolver
 import scala.util.control.NonFatal
 import kaike.reliable.location.model.RobustUCFLSolver
 
-object Visualizer {
+object NetworkOutput {
   def jsonEncode(sol: LocationSolution) = {
     val demandPointsList = sol.instance.demandPoints.map { x => x.toJArray }.toList
     val openFacilitiesList = sol.openDCs.map { x => x.toJArray }.toList
@@ -23,6 +23,7 @@ object Visualizer {
         ("numberofOpen" -> openFacilitiesList.size) ~
         ("solutionTime" -> sol.time) ~
         ("solver" -> sol.solver.SOLVER_NAME) ~
+        ("problem" -> sol.instance.problemName) ~
         ("objectiveValue" -> sol.objValue) ~
         ("demandPoints" -> JArray(demandPointsList)) ~
         ("openFacilities" -> JArray(openFacilitiesList)) ~
@@ -46,9 +47,12 @@ object Visualizer {
     (0 until times).takeWhile(i => {
       var ret = false
       try {
-        x()
+        println(x())
       } catch {
-        case NonFatal(e) => ret = true
+        case NonFatal(e) => {
+          e.printStackTrace()
+          ret = true
+        }
       }
       ret
     })
@@ -57,7 +61,8 @@ object Visualizer {
     val jsonData = jsonEncode(sol)
     println(jsonData)
     attemp(10)(
-      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
+//      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
+      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
 
   }
 }

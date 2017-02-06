@@ -16,7 +16,7 @@ import scala.util.control.Breaks._
 import ilog.concert.IloRange
 import kaike.reliable.location.data.Scenario
 
-class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instructor: SolverInstructor) extends Solver("CrossMonment") {
+class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane+ColumnGen") {
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
 

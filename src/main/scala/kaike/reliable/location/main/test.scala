@@ -4,7 +4,7 @@ import kaike.reliable.location.data.InstanceReader
 import kaike.reliable.location.model.UCFLSolver
 import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.model.UCFLSolver
-import kaike.reliable.location.output.Visualizer
+import kaike.reliable.location.output.NetworkOutput
 import kaike.reliable.location.model.RUCFLSolver
 import kaike.reliable.location.data.ReliableLocationParameter
 import kaike.reliable.location.data.ReliableLocationProblemInstance
@@ -21,7 +21,7 @@ object test {
 //    val model = new UCFLSolver(instance, instructor)
     
     model.solve() match {
-      case Some(sol) => Visualizer.post(sol)
+      case Some(sol) => NetworkOutput.post(sol)
       case _ => println("Unable to find solution.")
     }
     

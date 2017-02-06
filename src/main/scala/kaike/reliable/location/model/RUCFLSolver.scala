@@ -13,7 +13,7 @@ import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
 
-class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor: SolverInstructor) extends Solver("RUCFL") {
+class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane for Stocastic RUCFL") {
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

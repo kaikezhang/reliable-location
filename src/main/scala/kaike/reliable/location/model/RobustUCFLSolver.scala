@@ -15,7 +15,7 @@ import scala.collection.immutable.TreeSet
 import kaike.reliable.location.data.Scenario
 import kaike.reliable.location.data.RobustLocationProblemInstance
 
-class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instructor: SolverInstructor) extends Solver("Robust-UCFL") {
+class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane for Robust RUCFL") {
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

@@ -28,7 +28,7 @@ object NetworkOutput {
         ("demandPoints" -> JArray(demandPointsList)) ~
         ("openFacilities" -> JArray(openFacilitiesList)) ~
         ("assignments" -> JArray(sol.assignments.toList.map(x => JArray(List(JInt(x._2.index), JInt(x._1.index)))))) ~
-        ("gap" -> sol.gap)
+        ("gap" -> sol.gap * 100)
 
     sol.solver match {
       case rculpSolver: RUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~

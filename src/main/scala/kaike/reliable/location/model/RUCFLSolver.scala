@@ -112,6 +112,7 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
       val objective = cplex.sum(locationCosts, phi)
       
       cplex.addMinimize(objective)
+      cplex.setOut(null)
       cplex.use(new SuperModularCutLazyConstraint(cplex, open, phi))
 
       cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)

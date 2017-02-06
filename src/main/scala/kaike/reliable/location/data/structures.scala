@@ -41,15 +41,15 @@ class CandidateLocation(val index: Int, val fixedCosts: Double,  override val la
   def toJArray() = JArray(List(JInt(index), JDouble(lat), JDouble(lng)))
 }
 
-case class ReliableLocationParameter(alpha:Double = 1, theta:Double = 400){
+case class ReliableLocationParameter(alpha:Double = 1, theta:Int = 400){
   override def toString() = {
-    s"Alpha = ${alpha}\nTheta = ${theta}"
+    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
   }
 }
 
-case class CrossMonmentParameter(beta: Double = 1, theta:Double = 400) {
+case class CrossMonmentParameter(beta: Double = 1, theta:Int = 400) {
   override def toString() = {
-    s"Beta = ${beta}\nTheta = ${theta}"
+    s"Beta = ${"%.2f".format(beta)}\nTheta = ${theta}"
   }  
 }
 

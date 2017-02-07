@@ -47,9 +47,9 @@ case class ReliableLocationParameter(alpha:Double = 1, theta:Int = 400){
   }
 }
 
-case class CrossMonmentParameter(beta: Double = 1, theta:Int = 400) {
+case class CrossMonmentParameter(alpha: Double = 1, theta:Int = 400) {
   override def toString() = {
-    s"Beta = ${"%.2f".format(beta)}\nTheta = ${theta}"
+    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
   }  
 }
 
@@ -63,10 +63,17 @@ class ProblemInstance(val demandPoints: IndexedSeq[DemandPoint],  val candidateL
   })
 }
 
-case class ReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
+abstract class ReliableProblemInstance( demandPoints: IndexedSeq[DemandPoint],  
+                                        candidateLocations: IndexedSeq[CandidateLocation],
+                                        problemName:String) 
+                                                          extends ProblemInstance(demandPoints, candidateLocations, problemName){
+  val failRate:IndexedSeq[Double]
+}
+
+case class StochasticReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
                                             override val candidateLocations: IndexedSeq[CandidateLocation],
                                             parameter: ReliableLocationParameter = ReliableLocationParameter()) 
-                                                          extends ProblemInstance(demandPoints, candidateLocations, "Stochastic RUCLP"){
+                                                          extends ReliableProblemInstance(demandPoints, candidateLocations, "Stochastic RUCLP"){
 
   val alpha = parameter.alpha
   val theta = parameter.theta
@@ -76,10 +83,10 @@ case class ReliableLocationProblemInstance( override val demandPoints: IndexedSe
 
 }
 
-case class RobustLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
+case class RobustReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
                                           override val candidateLocations: IndexedSeq[CandidateLocation], 
                                           parameter: ReliableLocationParameter = ReliableLocationParameter())
-                                                          extends ProblemInstance(demandPoints, candidateLocations, "Robust RUCLP"){
+                                                          extends ReliableProblemInstance(demandPoints, candidateLocations, "Robust RUCLP"){
   
   val alpha = parameter.alpha
   val theta = parameter.theta
@@ -95,10 +102,10 @@ case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[Dem
                                        override val candidateLocations: IndexedSeq[CandidateLocation], 
                                        parameter: CrossMonmentParameter = CrossMonmentParameter())
                                                           extends ProblemInstance(demandPoints, candidateLocations, "Robust RUCLP Crossmonment") {
-  val beta = parameter.beta
+  val alpha = parameter.alpha
   val theta = parameter.theta
   val newOrleans = Coordinate(30.07, -89.93)
-  val failRate = candidateLocationIndexes.map { i => Math.min(1, beta * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  val failRate = candidateLocationIndexes.map { i => Math.min(1, alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
   
   private val candidateDistance = Array.tabulate(candidateLocations.length, candidateLocations.length)((i,j) => {
     GeoComputer.distance(candidateLocations(i), candidateLocations(j))
@@ -110,7 +117,7 @@ case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[Dem
     if(i == j)
       failRate(i)
     else if(j == nearestLoc(i) || i == nearestLoc(j)){
-      failRate(i) * failRate(j) / beta
+      failRate(i) * failRate(j) // / alpha
 //      -1
     } else
       -1

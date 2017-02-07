@@ -8,4 +8,5 @@ case class LocationSolution(instance: ProblemInstance,
                             time:Double,
                             solver:Solver,
                             objValue:Double,
-                            gap: Double);
+                            gap: Double,
+                            status:String = "Stop criteria meet");

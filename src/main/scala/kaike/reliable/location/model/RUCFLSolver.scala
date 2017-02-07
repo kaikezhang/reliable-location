@@ -1,6 +1,6 @@
 package kaike.reliable.location.model
 
-import kaike.reliable.location.data.ReliableLocationProblemInstance
+import kaike.reliable.location.data.StochasticReliableLocationProblemInstance
 import kaike.reliable.location.data.SolverInstructor
 import ilog.cplex.IloCplex
 import kaike.reliable.location.data.LocationSolution
@@ -13,22 +13,14 @@ import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
 
-class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane for Stocastic RUCFL") {
-  val demands = instance.demandPoints
-  val candidateDCs = instance.candidateLocations
-  
-  val distance = instance.distance
-  val failrate = instance.failRate
-  
-  val demandIndexes = instance.demandsPointIndexes
-  val locationIndexes = instance.candidateLocationIndexes
-  
-  var nbCuts = 0
-  
-  var upperBound = Double.MaxValue
-  var lowerBound = 0.0    
+class RUCFLSolver(override val instance: StochasticReliableLocationProblemInstance, override val instructor: SolverInstructor) 
+            extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Stocastic RUCFL") {
 
-  class SuperModularCutLazyConstraint(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) extends LazyConstraintCallback {
+  def newLazyCutClass(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar): LazyConstraintCallback = {
+    new RUCFLSuperModularCutLazyConstraint(cplex, open, phi)
+  }
+  
+  class RUCFLSuperModularCutLazyConstraint(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) extends LazyConstraintCallback {
     def main(): Unit = {
       val openValues = open.map { x => getValue(x) }
       val setupCosts = locationIndexes.map { j => openValues(j) * candidateDCs(j).fixedCosts }.sum
@@ -80,8 +72,6 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
 
       if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) { return }
       
-      if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) { return }
-
       var cut = cplex.sum(solutionTrspCosts, cplex.numExpr())
 
       locationIndexes.diff(openDCIndexes).foreach { j =>
@@ -98,49 +88,4 @@ class RUCFLSolver(val instance: ReliableLocationProblemInstance, val instructor:
     }
   }
 
-  def solve(): Option[LocationSolution] = {
-    var ret: Option[LocationSolution] = None
-
-    val cplex = new IloCplex()
-
-    try {
-      val open = Array.tabulate(candidateDCs.size)( i => cplex.boolVar() )
-      val phi = cplex.numVar(0, Double.MaxValue)
-
-      val locationCosts = locationIndexes.map { j => cplex.prod(candidateDCs(j).fixedCosts, open(j)) }.fold(cplex.numExpr())(cplex.sum)
-
-      val objective = cplex.sum(locationCosts, phi)
-      
-      cplex.addMinimize(objective)
-      cplex.setOut(null)
-      cplex.use(new SuperModularCutLazyConstraint(cplex, open, phi))
-
-      cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
-      val begin = System.currentTimeMillis()
-      if (cplex.solve()) {
-        val end = System.currentTimeMillis()
-        val openValues = locationIndexes.map { j => (j, cplex.getValue(open(j))) }.toMap
-        val openIndexes = openValues.filter(p => p._2 > 0.5).keys.toSeq
-        val openDCs = openIndexes.map { j => candidateDCs(j) }
-
-        val assignments = demandIndexes.map { i => {
-          (demands(i), candidateDCs(openIndexes.minBy { j => distance(i)(j) }) )
-        } }.toSeq
-     
-        if(lowerBound < cplex.getBestObjValue)
-          lowerBound = cplex.getBestObjValue
-          
-        ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = (upperBound - lowerBound) / lowerBound ))
-      }
-
-    } catch {
-      case e: CpxException => println("Cplex exception caught: " + e);
-      case NonFatal(e)     => println("exception caught: " + e);
-      case _: Throwable    =>
-    } finally {
-      cplex.end()
-    }
-    ret
-  }
 }

@@ -28,7 +28,8 @@ object NetworkOutput {
         ("demandPoints" -> JArray(demandPointsList)) ~
         ("openFacilities" -> JArray(openFacilitiesList)) ~
         ("assignments" -> JArray(sol.assignments.toList.map(x => JArray(List(JInt(x._2.index), JInt(x._1.index)))))) ~
-        ("gap" -> sol.gap * 100)
+        ("gap" -> sol.gap * 100) ~
+        ("status" -> sol.status)
 
     sol.solver match {
       case rculpSolver: RUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
@@ -57,12 +58,22 @@ object NetworkOutput {
       ret
     })
   }
-  def post(sol: LocationSolution) = {
-    val jsonData = jsonEncode(sol)
-    println(jsonData)
+  
+  def sendData(jsonData: String ) = {
     attemp(10)(
 //      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
-      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
-
+      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)    
+  }
+  def post(sol: LocationSolution) = {
+    sendData(jsonEncode(sol))
+  }
+  
+  def postNoSolutionFound(model:CrossMonmentSolver) = {
+   val json =
+    ("numberofNodes" -> model.candidateDCs.size) ~
+      ("solver" -> model.SOLVER_NAME) ~
+      ("problem" -> model.instance.problemName) ~
+      ("status" -> "Error")
+    sendData(compact(render(json)))  
   }
 }

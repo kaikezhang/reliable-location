@@ -1,6 +1,6 @@
 package kaike.reliable.location.model
 
-import kaike.reliable.location.data.ReliableLocationProblemInstance
+import kaike.reliable.location.data.StochasticReliableLocationProblemInstance
 import kaike.reliable.location.data.SolverInstructor
 import ilog.cplex.IloCplex
 import kaike.reliable.location.data.LocationSolution
@@ -13,20 +13,10 @@ import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
 import kaike.reliable.location.data.Scenario
-import kaike.reliable.location.data.RobustLocationProblemInstance
+import kaike.reliable.location.data.RobustReliableLocationProblemInstance
 
-class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane for Robust RUCFL") {
-  val demands = instance.demandPoints
-  val candidateDCs = instance.candidateLocations
-  
-  val distance = instance.distance
-  val failrate = instance.failRate
-  
-  val demandIndexes = instance.demandsPointIndexes
-  val locationIndexes = instance.candidateLocationIndexes
-  
-  var upperBound = Double.MaxValue
-  var lowerBound = 0.0  
+class RobustUCFLSolver(override val instance: RobustReliableLocationProblemInstance, override val instructor: SolverInstructor)
+                extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Robust RUCFL") {
   
   def constructWorstCaseScenarios(failureRate: IndexedSeq[Double]): Seq[Scenario] = {
     // sort locations in ascending order of failure rate
@@ -57,8 +47,6 @@ class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instruct
   
   val worstCaseScenarios:Seq[Scenario] = constructWorstCaseScenarios(failrate)
   
-  var nbCuts = 0
-  
   def getTransptCostsForScenario(openLocs: Set[Int], scenario: Scenario): Double = {
     val effectiveLocs = openLocs.filter { j => !scenario.failures.contains(j) }
     if (effectiveLocs.size == 0) {
@@ -72,91 +60,14 @@ class RobustUCFLSolver(val instance: RobustLocationProblemInstance, val instruct
     scenarios.par.map { scenario => scenario.prob * getTransptCostsForScenario(openLocs, scenario) }.sum
   }  
 
-  class SuperModularCutLazyConstraint(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) extends LazyConstraintCallback {
-    def main(): Unit = {
-      val openValues = open.map { x => getValue(x) }
-      val setupCosts = locationIndexes.map { j => openValues(j) * candidateDCs(j).fixedCosts }.sum
-      
-      val openLocs = locationIndexes.filter(j => openValues(j) > 0.5).toSet 
-
-      
-      val solutionTrspCosts = getTransptCostsForScenarios(openLocs, worstCaseScenarios )
-
-
-      val phiValue = getValue(phi)
-      
-      val clb = getBestObjValue()
-      val cub = setupCosts + solutionTrspCosts
-      
-      if (lowerBound < clb) 
-        lowerBound = clb
-
-      if (upperBound > cub) 
-        upperBound = cub
-
-      if (lowerBound > 0) {
-        if (((upperBound - lowerBound) / lowerBound) < instructor.gap) {
-          println("No cut is added due to gap limit reached.")
-          abort()
-          return 
-        }
-      }      
-
-      if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) { return }
-
-      var cut = cplex.linearNumExpr(solutionTrspCosts)
-      
-      for( j <- locationIndexes if !openLocs.contains(j)) {
-        cut.addTerm(getTransptCostsForScenarios(openLocs + (j), worstCaseScenarios ) - solutionTrspCosts, open(j))
-      }
-
-      nbCuts = nbCuts + 1
-      add(cplex.ge(cplex.diff(phi, cut), 0))
-    }
+  class RobustSuperModularCutLazyConstraintt(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar) 
+                                      extends SuperModularCutLazyConstraint(cplex, open, phi){
+    override def getTransptCosts(openLocs:Set[Int]):Double = {
+      getTransptCostsForScenarios(openLocs, worstCaseScenarios)
+    }                                      
   }
-
-  def solve(): Option[LocationSolution] = {
-    var ret: Option[LocationSolution] = None
-
-    val cplex = new IloCplex()
-
-    try {
-      val open = Array.tabulate(candidateDCs.size)( i => cplex.boolVar() )
-      val phi = cplex.numVar(0, Double.MaxValue)
-
-      val locationCosts = locationIndexes.map { j => cplex.prod(candidateDCs(j).fixedCosts, open(j)) }.fold(cplex.numExpr())(cplex.sum)
-
-      val objective = cplex.sum(locationCosts, phi)
-      
-      cplex.addMinimize(objective)
-      cplex.use(new SuperModularCutLazyConstraint(cplex, open, phi))
-
-      cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
-      val begin = System.currentTimeMillis()
-      if (cplex.solve()) {
-        val end = System.currentTimeMillis()
-        val openValues = locationIndexes.map { j => (j, cplex.getValue(open(j))) }.toMap
-        val openIndexes = openValues.filter(p => p._2 > 0.5).keys.toSeq
-        val openDCs = openIndexes.map { j => candidateDCs(j) }
-
-        val assignments = demandIndexes.map { i => {
-          (demands(i), candidateDCs(openIndexes.minBy { j => distance(i)(j) }) )
-        } }.toSeq
- 
-        if(lowerBound < cplex.getBestObjValue)
-          lowerBound = cplex.getBestObjValue
-          
-        ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = (upperBound - lowerBound) / lowerBound))
-      }
-
-    } catch {
-      case e: CpxException => println("Cplex exception caught: " + e);
-      case NonFatal(e)     => println("exception caught: " + e);
-      case _: Throwable    =>
-    } finally {
-      cplex.end()
-    }
-    ret
+  def newLazyCutClass(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar): LazyConstraintCallback = {
+    new RobustSuperModularCutLazyConstraintt(cplex, open, phi)
   }
+   
 }

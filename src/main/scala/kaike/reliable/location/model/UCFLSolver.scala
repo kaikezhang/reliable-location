@@ -1,6 +1,6 @@
 package kaike.reliable.location.model
 
-import kaike.reliable.location.data.ReliableLocationProblemInstance
+import kaike.reliable.location.data.StochasticReliableLocationProblemInstance
 import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.data.LocationSolution
 import ilog.cplex.IloCplex
@@ -8,7 +8,7 @@ import ilog.cplex.CpxException
 import scala.util.control.NonFatal
 import kaike.reliable.location.data.LocationSolution
 
-class UCFLSolver(instance: ReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UCFL MIP Model"){
+class UCFLSolver(instance: StochasticReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UCFL MIP Model"){
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

@@ -8,7 +8,7 @@ import ilog.cplex.CpxException
 import scala.util.control.NonFatal
 import kaike.reliable.location.data.LocationSolution
 
-class UFLPSolver(instance: StochasticReliableLocationProblemInstance, instructor: SolverInstructor) extends LocationProblemSolver(instance, instructor, "UFLP MIP Model"){
+class UFLPSolver(instance: StochasticReliableLocationProblemInstance, instructor: SolverInstructor) extends SolverCommon(instance, instructor, "UFLP MIP Model"){
 
   def solve(): Option[LocationSolution] = {
     var ret: Option[LocationSolution] = None

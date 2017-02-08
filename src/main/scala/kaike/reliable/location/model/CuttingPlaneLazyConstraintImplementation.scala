@@ -19,7 +19,7 @@ import kaike.reliable.location.data.ReliableProblemInstance
 
 abstract class CuttingPlaneLazyConstraintImplementation(override val instance: ReliableProblemInstance,
                                                         override val instructor: SolverInstructor,
-                                                        override val SOLVER_NAME:String) extends LocationProblemSolver(instance, instructor, SOLVER_NAME){
+                                                        override val SOLVER_NAME:String) extends SolverCommon(instance, instructor, SOLVER_NAME){
 
   val failrate = instance.failRate
     

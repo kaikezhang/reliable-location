@@ -16,7 +16,7 @@ import scala.util.control.Breaks._
 import ilog.concert.IloRange
 import kaike.reliable.location.data.Scenario
 
-class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, override val instructor: SolverInstructor) extends LocationProblemSolver(instance, instructor, "CuttingPlane + ColumnGen") {
+class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
   val failrate = instance.failRate
   val crossMonmentMatrix = instance.crossMonmentMatrix

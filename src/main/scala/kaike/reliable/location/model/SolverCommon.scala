@@ -5,7 +5,7 @@ import kaike.reliable.location.data.ProblemInstance
 import kaike.reliable.location.data.SolverInstructor
 
 
-abstract class LocationProblemSolver(val instance:ProblemInstance, val instructor:SolverInstructor, val SOLVER_NAME:String) {
+abstract class SolverCommon(val instance:ProblemInstance, val instructor:SolverInstructor, val SOLVER_NAME:String) {
   def solve():Option[LocationSolution]
   
   val demands = instance.demandPoints

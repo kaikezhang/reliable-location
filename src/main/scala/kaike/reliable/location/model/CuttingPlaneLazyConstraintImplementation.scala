@@ -17,23 +17,16 @@ import kaike.reliable.location.data.ProblemInstance
 import kaike.reliable.location.data.ReliableProblemInstance
 
 
-abstract class CuttingPlaneLazyConstraintImplementation(val instance: ReliableProblemInstance,
-                                                        val instructor: SolverInstructor,
-                                                        val name:String) extends Solver(name){
-  val demands = instance.demandPoints
-  val candidateDCs = instance.candidateLocations
-  
-  val distance = instance.distance
+abstract class CuttingPlaneLazyConstraintImplementation(override val instance: ReliableProblemInstance,
+                                                        override val instructor: SolverInstructor,
+                                                        override val SOLVER_NAME:String) extends LocationProblemSolver(instance, instructor, SOLVER_NAME){
+
   val failrate = instance.failRate
-  
-  val demandIndexes = instance.demandsPointIndexes
-  val locationIndexes = instance.candidateLocationIndexes
-  
+    
   var nbCuts = 0
   
   var upperBound = Double.MaxValue
   var lowerBound = 0.0
-  
   
   def newLazyCutClass(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar): LazyConstraintCallback
   
@@ -106,9 +99,8 @@ abstract class CuttingPlaneLazyConstraintImplementation(val instance: ReliablePr
       cplex.use(newLazyCutClass(cplex, open, phi))
 
       cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
-      val begin = System.currentTimeMillis()
+      beginTime = System.currentTimeMillis()
       if (cplex.solve()) {
-        val end = System.currentTimeMillis()
         val openValues = locationIndexes.map { j => (j, cplex.getValue(open(j))) }.toMap
         val openIndexes = openValues.filter(p => p._2 > 0.5).keys.toSeq
         val openDCs = openIndexes.map { j => candidateDCs(j) }
@@ -122,9 +114,11 @@ abstract class CuttingPlaneLazyConstraintImplementation(val instance: ReliablePr
           
         var finalGap = (upperBound - lowerBound) / lowerBound
         if(finalGap < 0) finalGap = 0.0
+        
+        val status = if( timeLimitReached()) "Time reaches" else  "Gap reaches"
           
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
-          time = 1.0 * (end - begin) / 1000, solver = this, objValue = Math.round(cplex.getObjValue()), gap = finalGap))
+          time = timeUsed(), solver = this, objValue = Math.round(cplex.getObjValue()), gap = finalGap, status = status))
       }
 
     } catch {

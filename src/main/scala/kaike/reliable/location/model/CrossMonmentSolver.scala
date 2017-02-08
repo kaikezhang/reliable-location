@@ -16,16 +16,10 @@ import scala.util.control.Breaks._
 import ilog.concert.IloRange
 import kaike.reliable.location.data.Scenario
 
-class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instructor: SolverInstructor) extends Solver("CuttingPlane + ColumnGen") {
-  val demands = instance.demandPoints
-  val candidateDCs = instance.candidateLocations
+class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, override val instructor: SolverInstructor) extends LocationProblemSolver(instance, instructor, "CuttingPlane + ColumnGen") {
 
-  val distance = instance.distance
   val failrate = instance.failRate
   val crossMonmentMatrix = instance.crossMonmentMatrix
-
-  val demandIndexes = instance.demandsPointIndexes
-  val locationIndexes = instance.candidateLocationIndexes
 
   val randomRealizations = instance.realizations
 
@@ -40,19 +34,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
 
   var InitialFeasibleScenarios = Array.empty[Scenario]
 
-  var overallBeginTime: Double = _
-  var openDCs = Seq.empty[Int]
 
-  def timeUsed(): Double = {
-    1.0 * (System.currentTimeMillis() - overallBeginTime) / 1000
-  }
-  def timeLeft(): Double = {
-    instructor.timeLimit - timeUsed
-  }
-
-  def timeLimitReached(): Boolean = {
-    timeLeft < 0
-  }
 
   def solve(): Option[LocationSolution] = {
     var ret: Option[LocationSolution] = None
@@ -72,7 +54,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       val objective = cuttingPlaneMainProblem.sum(locationCosts, phi)
       cuttingPlaneMainProblem.addMinimize(objective)
 
-      overallBeginTime = System.currentTimeMillis()
+      beginTime = System.currentTimeMillis()
       breakable { while (true) {
         if (timeLimitReached()) {
           break

@@ -78,4 +78,15 @@ object NetworkOutput {
    
     sendData(compact(render(json)))  
   }
+  
+  def postError(model:RUFLPSolver) = {
+   var json =
+      ("numberofNodes" -> model.candidateDCs.size) ~
+      ("solver" -> model.SOLVER_NAME) ~
+      ("problem" -> model.instance.problemName) ~
+      ("status" -> "Error") ~
+      ("parameters" -> model.instance.parameter.toString())
+   
+    sendData(compact(render(json)))  
+  }  
 }

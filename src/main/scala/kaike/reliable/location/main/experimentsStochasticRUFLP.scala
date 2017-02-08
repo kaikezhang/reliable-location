@@ -25,7 +25,7 @@ object experimentsStochasticRUFLP {
       
       model.solve() match {
         case Some(sol) => NetworkOutput.post(sol)
-        case _ => println("Unable to find solution.")
+        case _ => NetworkOutput.postError(model)
       }      
     }
 

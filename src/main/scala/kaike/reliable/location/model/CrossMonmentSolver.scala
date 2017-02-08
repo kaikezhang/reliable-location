@@ -126,12 +126,12 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
             val incrementalCost = getTransptCostsForScenarios(newOpenLocs.toSet, scenarios) - trspCosts
             cut.addTerm(incrementalCost, open(j))
           }
-
+          println(cut.getConstant)
           cuttingPlaneMainProblem.addGe(phi, cut)
           nbCuts += 1
 
         } else {
-          println("Should not come here Erro 003")
+          println("Should not come here Error 003")
           println(s"Cplex status ${cuttingPlaneMainProblem.getStatus}")
           break
         }
@@ -139,21 +139,21 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       }}
       
       if(!modelInfeasible){
-      println(s"Upper bound: ${upperBound} -- Lower bound: ${lowerBound}")
-      
-      var finalGap = (upperBound - lowerBound) / lowerBound
-      if(finalGap < 0) finalGap = 0.0
-      
-      val assignments = demandIndexes.map { i => {
-          (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
-        } }.toSeq        
-      val status = if( timeLimitReached()) "Time reaches" else  "Gap reaches" 
-      ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
-        time = timeUsed, solver = this, objValue = Math.round(upperBound), finalGap, status = status))
+        println(s"Upper bound: ${upperBound} -- Lower bound: ${lowerBound}")
+        
+        var finalGap = (upperBound - lowerBound) / lowerBound
+        if(finalGap < 0) finalGap = 0.0
+        
+        val assignments = demandIndexes.map { i => {
+            (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
+          } }.toSeq        
+        val status = if( timeLimitReached()) "Time reaches" else  "Gap reaches" 
+        ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
+          time = timeUsed, solver = this, objValue = Math.round(upperBound), finalGap, status = status))
       } else {
-      nbCuts = 0
-      ret = Some(LocationSolution(instance = instance, openDCs = Seq.empty , assignments = Seq.empty,
-        time = timeUsed, solver = this, objValue = 0, gap = 0, status = "Infeasible") )       
+        nbCuts = 0
+        ret = Some(LocationSolution(instance = instance, openDCs = Seq.empty , assignments = Seq.empty,
+          time = timeUsed, solver = this, objValue = 0, gap = 0, status = "Infeasible") )       
       }
 
     } catch {
@@ -161,7 +161,10 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         println("Cplex exception caught: " + e);
         e.printStackTrace()
       }
-      case NonFatal(e)     => println("exception caught: " + e);
+      case NonFatal(e)     => {
+        println("exception caught: " + e);
+        e.printStackTrace()
+      }
     } finally {
       cuttingPlaneMainProblem.end()
     }
@@ -197,7 +200,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
     }
 
     modelZsepDual.setParam(IloCplex.IntParam.RootAlg, IloCplex.Algorithm.Primal)
-    modelZsepDual.setOut(null)    
+//    modelZsepDual.setOut(null)    
     modelZsepDual.setParam(IloCplex.BooleanParam.PreInd, false)
     modelZsepDual.addMinimize(objCosts)
 
@@ -319,10 +322,11 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       breakable { while (true) {
         modelZsepDual.solve()        
         if (modelZsepDual.getStatus == IloCplex.Status.Optimal) {
-          (0 until Cuts.size).foreach(i => {
-            scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
-          })
-          InitialFeasibleScenarios = scenarios.filter { x => x.prob > 0 }.toArray
+//          (0 until Cuts.size).foreach(i => {
+//            scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
+//          })
+          InitialFeasibleScenarios = scenarios.toArray //.filter { x => x.prob > 0 }
+          println("here")
           break
         } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded || 
             modelZsepDual.getStatus == IloCplex.Status.InfeasibleOrUnbounded) {
@@ -348,14 +352,14 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       println("End of generating initial scenarios")
       unboundedModel.end()
     }
+    
+    println(modelZsepDual.getStatus)
 
     breakable { while (!modelInfeasible) {
       if (timeLimitReached()) {
         terminatedDueToTimeLimit = true
         break
       }
-
-      modelZsepDual.solve()
       
       def solvePricingProblem(): Option[Scenario] = {
         var ret: Option[Scenario] = None
@@ -392,6 +396,10 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         }
         ret
       }
+      
+      modelZsepDual.solve()
+      
+      println(modelZsepDual.getStatus)
 
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
       solvePricingProblem() match {
@@ -400,6 +408,7 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
         }
         case _ => break
       }} else {
+        println("Should not come here Error x2tv")
         break
       }
 
@@ -412,8 +421,11 @@ class CrossMonmentSolver(val instance: CrossMonmentProblemInstance, val instruct
       })
     }
 
+    println(modelZsepDual.getStatus)
     pricingModel.end()
     modelZsepDual.end()
+    
+    
 
     if (modelInfeasible || terminatedDueToTimeLimit)
       (-1.0, Seq.empty)

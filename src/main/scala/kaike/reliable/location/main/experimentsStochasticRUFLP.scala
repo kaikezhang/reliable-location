@@ -3,12 +3,12 @@ package kaike.reliable.location.main
 import kaike.reliable.location.data.ReliableLocationParameter
 import kaike.reliable.location.data.InstanceReader
 import kaike.reliable.location.output.NetworkOutput
-import kaike.reliable.location.model.RUCFLSolver
+import kaike.reliable.location.model.RUFLPSolver
 import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.data.StochasticReliableLocationProblemInstance
 
 
-object experimentsStochasticRUCLP {
+object experimentsStochasticRUFLP {
   
   def main(args: Array[String]): Unit = {
     
@@ -21,7 +21,7 @@ object experimentsStochasticRUCLP {
       val instance = StochasticReliableLocationProblemInstance(demands, dcs, parameter)
       val instructor =  SolverInstructor()
   
-      val model = new RUCFLSolver(instance, instructor)
+      val model = new RUFLPSolver(instance, instructor)
       
       model.solve() match {
         case Some(sol) => NetworkOutput.post(sol)

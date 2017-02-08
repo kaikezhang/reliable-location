@@ -8,7 +8,7 @@ import ilog.cplex.CpxException
 import scala.util.control.NonFatal
 import kaike.reliable.location.data.LocationSolution
 
-class UCFLSolver(instance: StochasticReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UCFL MIP Model"){
+class UFLPSolver(instance: StochasticReliableLocationProblemInstance, instructor: SolverInstructor) extends Solver("UFLP MIP Model"){
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   
@@ -61,7 +61,6 @@ class UCFLSolver(instance: StochasticReliableLocationProblemInstance, instructor
     } catch {
       case e: CpxException => println("Cplex exception caught: " + e);
       case NonFatal(e)     => println("exception caught: " + e);
-      case _: Throwable    =>
     } finally {
       cplex.end()
     }

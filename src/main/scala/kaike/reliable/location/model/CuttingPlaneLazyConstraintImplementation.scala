@@ -130,7 +130,6 @@ abstract class CuttingPlaneLazyConstraintImplementation(val instance: ReliablePr
     } catch {
       case e: CpxException => println("Cplex exception caught: " + e);
       case NonFatal(e)     => println("exception caught: " + e);
-      case _: Throwable    =>
     } finally {
       cplex.end()
     }

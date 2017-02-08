@@ -13,8 +13,8 @@ import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
 
-class RUCFLSolver(override val instance: StochasticReliableLocationProblemInstance, override val instructor: SolverInstructor) 
-            extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Stocastic RUCFL") {
+class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstance, override val instructor: SolverInstructor) 
+            extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Stocastic RUFLP") {
 
   def newLazyCutClass(cplex: IloCplex, open: IndexedSeq[IloIntVar], phi: IloNumVar): LazyConstraintCallback = {
     new RUCFLSuperModularCutLazyConstraint(cplex, open, phi)
@@ -33,7 +33,7 @@ class RUCFLSolver(override val instance: StochasticReliableLocationProblemInstan
       }
 
       def computeTransporationCosts(dcMatrix: IndexedSeq[TreeSet[Int]]): Double = {
-        demandIndexes.map { i =>
+        demandIndexes.par.map { i =>
           {
             var rate = 1.0
             var costs = 0.0

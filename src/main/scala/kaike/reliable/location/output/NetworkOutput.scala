@@ -9,10 +9,10 @@ import org.json4s.native.JsonMethods._
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonAST.JArray
 import scalaj.http._
-import kaike.reliable.location.model.RUCFLSolver
+import kaike.reliable.location.model.RUFLPSolver
 import kaike.reliable.location.model.CrossMonmentSolver
 import scala.util.control.NonFatal
-import kaike.reliable.location.model.RobustUCFLSolver
+import kaike.reliable.location.model.RobustUFLPSolver
 
 object NetworkOutput {
   def jsonEncode(sol: LocationSolution) = {
@@ -32,11 +32,11 @@ object NetworkOutput {
         ("status" -> sol.status)
 
     sol.solver match {
-      case rculpSolver: RUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+      case rculpSolver: RUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case rculpSolver: CrossMonmentSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
-      case rculpSolver: RobustUCFLSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+      case rculpSolver: RobustUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case _ =>
     }
@@ -68,12 +68,14 @@ object NetworkOutput {
     sendData(jsonEncode(sol))
   }
   
-  def postNoSolutionFound(model:CrossMonmentSolver) = {
-   val json =
-    ("numberofNodes" -> model.candidateDCs.size) ~
+  def postError(model:CrossMonmentSolver) = {
+   var json =
+      ("numberofNodes" -> model.candidateDCs.size) ~
       ("solver" -> model.SOLVER_NAME) ~
       ("problem" -> model.instance.problemName) ~
-      ("status" -> "Error")
+      ("status" -> "Error") ~
+      ("parameters" -> model.instance.parameter.toString())
+   
     sendData(compact(render(json)))  
   }
 }

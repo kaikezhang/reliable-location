@@ -15,8 +15,8 @@ import scala.collection.immutable.TreeSet
 import kaike.reliable.location.data.Scenario
 import kaike.reliable.location.data.RobustReliableLocationProblemInstance
 
-class RobustUCFLSolver(override val instance: RobustReliableLocationProblemInstance, override val instructor: SolverInstructor)
-                extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Robust RUCFL") {
+class RobustUFLPSolver(override val instance: RobustReliableLocationProblemInstance, override val instructor: SolverInstructor)
+                extends CuttingPlaneLazyConstraintImplementation(instance, instructor, "CuttingPlane for Robust RUFLP") {
   
   def constructWorstCaseScenarios(failureRate: IndexedSeq[Double]): Seq[Scenario] = {
     // sort locations in ascending order of failure rate

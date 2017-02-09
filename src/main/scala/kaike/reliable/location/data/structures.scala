@@ -41,12 +41,16 @@ class CandidateLocation(val index: Int, val fixedCosts: Double,  override val la
   def toJArray() = JArray(List(JInt(index), JDouble(lat), JDouble(lng)))
 }
 
-case class ReliableLocationParameter(alpha:Double = 1, theta:Int = 400){
+case class RobustReliableLocationParameter(alpha:Double = 1, theta:Int = 400){
   override def toString() = {
     s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
   }
 }
-
+case class StochasticReliableLocationParameter(alpha:Double = 1) {
+  override def toString() = {
+    s"Alpha = ${"%.2f".format(alpha)}"
+  }  
+}
 case class CrossMonmentParameter(alpha: Double = 1, theta:Int = 400) {
   override def toString() = {
     s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
@@ -72,11 +76,11 @@ abstract class ReliableProblemInstance( demandPoints: IndexedSeq[DemandPoint],
 
 case class StochasticReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
                                             override val candidateLocations: IndexedSeq[CandidateLocation],
-                                            parameter: ReliableLocationParameter = ReliableLocationParameter()) 
+                                            parameter: StochasticReliableLocationParameter = StochasticReliableLocationParameter()) 
                                                           extends ReliableProblemInstance(demandPoints, candidateLocations, "Stochastic RUFLP"){
 
   val alpha = parameter.alpha
-  val theta = parameter.theta
+  val theta = 400 //
   
   val newOrleans = Coordinate(30.07, -89.93)
   val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
@@ -85,7 +89,7 @@ case class StochasticReliableLocationProblemInstance( override val demandPoints:
 
 case class RobustReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
                                           override val candidateLocations: IndexedSeq[CandidateLocation], 
-                                          parameter: ReliableLocationParameter = ReliableLocationParameter())
+                                          parameter: RobustReliableLocationParameter = RobustReliableLocationParameter())
                                                           extends ReliableProblemInstance(demandPoints, candidateLocations, "Robust RUFLP Marginal"){
   
   val alpha = parameter.alpha

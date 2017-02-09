@@ -6,15 +6,16 @@ import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.model.UFLPSolver
 import kaike.reliable.location.output.NetworkOutput
 import kaike.reliable.location.model.RUFLPSolver
-import kaike.reliable.location.data.ReliableLocationParameter
+import kaike.reliable.location.data.RobustReliableLocationParameter
 import kaike.reliable.location.data.StochasticReliableLocationProblemInstance
 import kaike.reliable.location.model.RobustUFLPSolver
 import kaike.reliable.location.data.RobustReliableLocationProblemInstance
+import kaike.reliable.location.data.StochasticReliableLocationParameter
 
 object test {
   def StocasticRUCLP() = {
     val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
-    val parameter = ReliableLocationParameter(alpha = 1 )
+    val parameter = StochasticReliableLocationParameter(alpha = 1 )
     val instance = StochasticReliableLocationProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 
@@ -28,7 +29,7 @@ object test {
   
   def RobustRUCLP() = {
     val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData50.txt")
-    val parameter = ReliableLocationParameter(alpha = 1 )
+    val parameter = RobustReliableLocationParameter(alpha = 1 )
     val instance = RobustReliableLocationProblemInstance(demands, dcs, parameter)
     val instructor =  SolverInstructor()
 

@@ -18,12 +18,13 @@ import kaike.reliable.location.data.Scenario
 
 class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
-  val failrate = instance.failRate
-  val crossMonmentMatrix = instance.crossMonmentMatrix
+  val SCALE_FACTOR = 1E6
+  
+  val crossMonmentMatrix = instance.crossMonmentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
+  
+  crossMonmentMatrix.foreach { x => println(x.mkString("[", ", ", "]")) }
 
   val randomRealizations = instance.realizations
-
-  val gapLimit = instructor.gap
   
   var modelInfeasible = false
 
@@ -61,9 +62,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
         }
         cuttingPlaneMainProblem.setParam(IloCplex.DoubleParam.TiLim, timeLeft())
 
-        cuttingPlaneMainProblem.solve()
-
-        if (cuttingPlaneMainProblem.getStatus == IloCplex.Status.Optimal) {
+        if (cuttingPlaneMainProblem.solve()) {
           val openValues = locationIndexes.map { j => cuttingPlaneMainProblem.getValue(open(j)) > 0.5 }
           val openLocs = locationIndexes.filter { j => openValues(j) }
           val setupCosts = openLocs.map { j => candidateDCs(j).fixedCosts }.sum
@@ -90,7 +89,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
           }
 
           if (lowerBound > 0) {
-            if (((upperBound - lowerBound) / lowerBound) < gapLimit) {
+            if (((upperBound - lowerBound) / lowerBound) < instructor.gap) {
               println("No cut is added due to gap limit reached.")
               break
             }
@@ -173,7 +172,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       yield ((j1, j2), modelZsepDual.numVar(-Double.MaxValue, Double.MaxValue))).toMap
     
     val objCosts = modelZsepDual.linearNumExpr()
-    objCosts.addTerm(1.0, alpha)
+    objCosts.addTerm(SCALE_FACTOR, alpha)
 
     locationIndexes.foreach { j => objCosts.addTerm(crossMonmentMatrix(j)(j), beta(j)) }
 
@@ -181,8 +180,9 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       objCosts.addTerm(crossMonmentMatrix(j1)(j2), betabar(j1, j2))
     }
 
-    modelZsepDual.setParam(IloCplex.IntParam.RootAlg, IloCplex.Algorithm.Primal)
-//    modelZsepDual.setOut(null)    
+//    modelZsepDual.setParam(IloCplex.IntParam.RootAlg, IloCplex.Algorithm.Primal)
+    modelZsepDual.setOut(null)
+    //Turn off preprocessing otherwise the model will return status of infeasibleorunbounded
     modelZsepDual.setParam(IloCplex.BooleanParam.PreInd, false)
     modelZsepDual.addMinimize(objCosts)
 
@@ -299,22 +299,24 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
         ret
       }
 
-      println("Generating initial scenarios if necessary")
+      println("Generating initial feasible scenarios")
 
       breakable { while (true) {
         modelZsepDual.solve()        
         if (modelZsepDual.getStatus == IloCplex.Status.Optimal) {
-//          (0 until Cuts.size).foreach(i => {
-//            scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
-//          })
-          InitialFeasibleScenarios = scenarios.toArray //.filter { x => x.prob > 0 }
-          println("here")
+          (0 until Cuts.size).foreach(i => {
+            scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
+          })
+          InitialFeasibleScenarios = scenarios.filter { x => x.prob > 0 }.toArray
           break
         } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded || 
             modelZsepDual.getStatus == IloCplex.Status.InfeasibleOrUnbounded) {
 //          println(s"mdoelZsepDual ${modelZsepDual.getStatus}")
           generateInfeasibilityCut() match {
-            case Some(scenario) => modelZsepDualAddCutForScenario(scenario)
+            case Some(scenario) => {
+              modelZsepDualAddCutForScenario(scenario)
+//              println("A scenario generated")
+            }
             case _ => {
               modelInfeasible = true
               break
@@ -335,7 +337,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       unboundedModel.end()
     }
     
-    println(modelZsepDual.getStatus)
+//    println(modelZsepDual.getStatus)
 
     breakable { while (!modelInfeasible) {
       if (timeLimitReached()) {
@@ -381,29 +383,32 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       
       modelZsepDual.solve()
       
-      println(modelZsepDual.getStatus)
+//      println(modelZsepDual.getStatus)
 
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
-      solvePricingProblem() match {
-        case Some(scenario) => {
-          modelZsepDualAddCutForScenario(scenario)
+//        println(s"modelZsepDual problem objective value: ${modelZsepDual.getObjValue}")
+        solvePricingProblem() match {
+          case Some(scenario) => {
+            modelZsepDualAddCutForScenario(scenario)
+          }
+          case _ => break
         }
-        case _ => break
-      }} else {
+      } else {
         println("Should not come here Error x2tv")
+        println("ModelZsepDual status: " + modelZsepDual.getStatus)
         break
       }
 
     }}
 
     if (!modelInfeasible && modelZsepDual.getStatus == IloCplex.Status.Optimal) {
-      sepDual_objValue = modelZsepDual.getObjValue
+      sepDual_objValue = modelZsepDual.getObjValue / SCALE_FACTOR
       (0 until Cuts.size).foreach(i => {
-        scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
+        scenarios(i).prob = modelZsepDual.getDual(Cuts(i)) / SCALE_FACTOR
       })
     }
 
-    println(modelZsepDual.getStatus)
+    
     pricingModel.end()
     modelZsepDual.end()
     

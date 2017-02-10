@@ -26,8 +26,8 @@ object experimentsCrossmoment {
         val model = new CrossMomentSolver(instance, instructor)
 
         model.solve() match {
-          case Some(sol) => NetworkOutput.post(sol)
-          case _         => NetworkOutput.postError(model)
+          case Some(sol) => NetworkOutput.post(sol, outCapture.toString())
+          case _         => NetworkOutput.postError(model, outCapture.toString())
         }
       }
       outCapture.close()

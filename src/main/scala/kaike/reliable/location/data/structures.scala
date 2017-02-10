@@ -105,7 +105,7 @@ class Scenario(val failures:Set[Int], var prob:Double)
 case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
                                        override val candidateLocations: IndexedSeq[CandidateLocation], 
                                        parameter: CrossMomentParameter = CrossMomentParameter())
-                                                          extends ProblemInstance(demandPoints, candidateLocations, "Robust RUFLP Crossmonment") {
+                                                          extends ProblemInstance(demandPoints, candidateLocations, "Robust RUFLP Crossmoment") {
   val alpha = parameter.alpha
   val theta = parameter.theta
   val newOrleans = Coordinate(30.07, -89.93)

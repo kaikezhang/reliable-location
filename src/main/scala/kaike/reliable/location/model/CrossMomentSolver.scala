@@ -11,18 +11,20 @@ import kaike.reliable.location.data.CandidateLocation
 import ilog.concert.IloNumVar
 import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
-import kaike.reliable.location.data.CrossMonmentProblemInstance
+import kaike.reliable.location.data.CrossMomentProblemInstance
 import scala.util.control.Breaks._
 import ilog.concert.IloRange
 import kaike.reliable.location.data.Scenario
 
-class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
+class CrossMomentSolver(override val instance: CrossMomentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
   val SCALE_FACTOR = 1E6
   
-  val crossMonmentMatrix = instance.crossMonmentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
-  
-  crossMonmentMatrix.foreach { x => println(x.mkString("[", ", ", "]")) }
+  val crossMomentMatrix = instance.crossMomentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
+
+  println(s"Cross moment matrix with scala factor = ${SCALE_FACTOR}:")
+  crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
+  println()
 
   val randomRealizations = instance.realizations
   
@@ -58,19 +60,26 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       beginTime = System.currentTimeMillis()
       breakable { while (true) {
         if (timeLimitReached()) {
+          println("Time limit is reached break the loop")
           break
         }
         cuttingPlaneMainProblem.setParam(IloCplex.DoubleParam.TiLim, timeLeft())
 
+        recordNow()
         if (cuttingPlaneMainProblem.solve()) {
           val openValues = locationIndexes.map { j => cuttingPlaneMainProblem.getValue(open(j)) > 0.5 }
           val openLocs = locationIndexes.filter { j => openValues(j) }
           val setupCosts = openLocs.map { j => candidateDCs(j).fixedCosts }.sum
           val phiValue = cuttingPlaneMainProblem.getValue(phi)
-          val (trspCosts, scenarios) = SEPERATE(openValues)
+          
+          println(s"Cutting plane master problem -- obj:${cuttingPlaneMainProblem.getObjValue} phi:${phiValue} in ${timeCheckout()}s")
+          
+          recordNow("seperate")
+          val (trspCosts, scenarios) = SEPERATE(openValues)  
+          println(s"Seperate problem is solved in ${timeCheckout("seperate")}s")
 
           if (scenarios.size == 0) {
-//            println("Time limit reached during solving seperation problem.")
+            println("Time limit is reached during solving seperation problem.")
             break
           }
 
@@ -78,25 +87,25 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
           val cub = setupCosts + trspCosts
 
           if (lowerBound < clb) {
-//            println(s"Lower bound updated: ${lowerBound} -> ${clb}")
+            println(s"Lower bound updated: ${lowerBound} -> ${clb}")
             lowerBound = clb
           }
 
           if (upperBound > cub) {
-//            println(s"Upper bound updated: ${upperBound} -> ${cub}")
+            println(s"Upper bound updated: ${upperBound} -> ${cub}")
             openDCs = openLocs
             upperBound = cub
           }
 
           if (lowerBound > 0) {
             if (((upperBound - lowerBound) / lowerBound) < instructor.gap) {
-              println("No cut is added due to gap limit reached.")
+              println("No cut is added due to the gap limit is reached")
               break
             }
           }
 
           if (phiValue - trspCosts > -1E-6) {
-            println("No cut is added due to current phi is greater than or equals to acctual transportation costs")
+            println("No cut is added due to the current phi value is greater than or equals to acctual transportation costs")
             break
           }
 
@@ -107,32 +116,34 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
             val incrementalCost = getTransptCostsForScenarios(newOpenLocs.toSet, scenarios) - trspCosts
             cut.addTerm(incrementalCost, open(j))
           }
-          println(cut.getConstant)
           cuttingPlaneMainProblem.addGe(phi, cut)
           nbCuts += 1
+          println(s"Number of Cuts (for cutting plane master problem) added: ${nbCuts} ---------------------------------Time ellasped ${timeUsed}s")
 
         } else {
           println("Should not come here Error 003")
-          println(s"Cplex status ${cuttingPlaneMainProblem.getStatus}")
+          println(s"Cutting Plane Master Problem has status ${cuttingPlaneMainProblem.getStatus}")
           break
         }
 
       }}
       
-      if(!modelInfeasible){
-        println(s"Upper bound: ${upperBound} -- Lower bound: ${lowerBound}")
-        
+      if(!modelInfeasible){   
         var finalGap = (upperBound - lowerBound) / lowerBound
         if(finalGap < 0) finalGap = 0.0
+      
         
         val assignments = demandIndexes.map { i => {
             (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
           } }.toSeq        
-        val status = if( timeLimitReached()) "Time reaches" else  "Gap reaches" 
+        val status = if( timeLimitReached()) "Time reached" else  "Gap reached"
+          
+        println(s"Final Upper bound: ${upperBound} -- Lower bound: ${lowerBound} --- gap:${finalGap} ----status:${status} ----Time used:${timeUsed}")
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
           time = timeUsed, solver = this, objValue = Math.round(upperBound), finalGap, status = status))
       } else {
         nbCuts = 0
+        println("Cross moment matrix is infeasible")
         ret = Some(LocationSolution(instance = instance, openDCs = Seq.empty , assignments = Seq.empty,
           time = timeUsed, solver = this, objValue = 0, gap = 0, status = "Infeasible") )       
       }
@@ -140,11 +151,11 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
     } catch {
       case e: CpxException => {
         println("Cplex exception caught: " + e);
-        e.printStackTrace()
+        e.printStackTrace(Console.out)
       }
       case NonFatal(e)     => {
         println("exception caught: " + e);
-        e.printStackTrace()
+        e.printStackTrace(Console.out)
       }
     } finally {
       cuttingPlaneMainProblem.end()
@@ -160,7 +171,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
 
     val openLocs = locationIndexes.filter { j => openValues(j) }.toSet
 
-    println(s"Seperating solution ${openLocs}")
+    println(s"Solving seperate problem for ${openLocs}")
 
     val scenarios = collection.mutable.ArrayBuffer.empty[Scenario]
 
@@ -168,16 +179,16 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
 
     val alpha = modelZsepDual.numVar(-Double.MaxValue, Double.MaxValue)
     val beta = locationIndexes.map { j => modelZsepDual.numVar(-Double.MaxValue, Double.MaxValue) }
-    val betabar = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0)
+    val betabar = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0)
       yield ((j1, j2), modelZsepDual.numVar(-Double.MaxValue, Double.MaxValue))).toMap
     
     val objCosts = modelZsepDual.linearNumExpr()
     objCosts.addTerm(SCALE_FACTOR, alpha)
 
-    locationIndexes.foreach { j => objCosts.addTerm(crossMonmentMatrix(j)(j), beta(j)) }
+    locationIndexes.foreach { j => objCosts.addTerm(crossMomentMatrix(j)(j), beta(j)) }
 
-    for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0 ) {
-      objCosts.addTerm(crossMonmentMatrix(j1)(j2), betabar(j1, j2))
+    for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0 ) {
+      objCosts.addTerm(crossMomentMatrix(j1)(j2), betabar(j1, j2))
     }
 
 //    modelZsepDual.setParam(IloCplex.IntParam.RootAlg, IloCplex.Algorithm.Primal)
@@ -193,7 +204,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       cutlhs.addTerm(1.0, alpha)
       scenario.failures.foreach { k => cutlhs.addTerm(1.0, beta(k)) }
       
-      for (j1 <- scenario.failures; j2 <- scenario.failures if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
+      for (j1 <- scenario.failures; j2 <- scenario.failures if j1 < j2 && crossMomentMatrix(j1)(j2) > 0) {
         cutlhs.addTerm(1.0, betabar(j1, j2))
       }
 
@@ -220,7 +231,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
     
     val pi = demandIndexes.map { i => pricingModel.numVar(-Double.MaxValue, Double.MaxValue) }
     val xi = locationIndexes.map { i => pricingModel.boolVar() }
-    val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0)
+    val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0)
       yield ((j1, j2), pricingModel.numVar(0, 1))).toMap
 
     for (i <- demandIndexes; j <- locationIndexes) {
@@ -236,7 +247,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       pricingModel.addLe(pi(i), demands(i).emergencyCost * demands(i).demand)
     }
 
-    for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
+    for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0) {
       pricingModel.addLe(lambda(j1, j2), xi(j1))
       pricingModel.addLe(lambda(j1, j2), xi(j2))
       pricingModel.addGe(lambda(j1, j2), pricingModel.sum(-1.0, pricingModel.sum(xi(j1), xi(j2))))
@@ -250,10 +261,10 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
     if (InitialFeasibleScenarios.size == 0) {
       val unboundedModel = new IloCplex()
       val xi = locationIndexes.map { j => unboundedModel.boolVar() }
-      val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0)
+      val lambda = (for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0)
       yield ((j1, j2), unboundedModel.numVar(0, 1))).toMap
 
-      for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
+      for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0) {
         unboundedModel.addLe(lambda(j1, j2), xi(j1))
         unboundedModel.addLe(lambda(j1, j2), xi(j2))
         unboundedModel.addGe(lambda(j1, j2), unboundedModel.sum(-1.0, unboundedModel.sum(xi(j1), xi(j2))))
@@ -278,23 +289,27 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
         for (j <- locationIndexes) {
           unboundedReducedCostLinearExpr.addTerm(rayMap.getOrElse(beta(j), 0.0), xi(j))
         }
-        for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
+        for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0) {
           unboundedReducedCostLinearExpr.addTerm(rayMap.getOrElse(betabar(j1, j2), 0.0), lambda(j1, j2))
         }
 
         unboundedReducedCost.setExpr(unboundedReducedCostLinearExpr)
+        
         unboundedModel.solve()
-
+       
         if (unboundedModel.getStatus() == IloCplex.Status.Optimal) {
+           println(s"Pricing problem for unbounded ZsepDual solved in ${timeCheckout()}s with status ${unboundedModel.getStatus()} --- reduced costs = ${unboundedModel.getObjValue()}")
           if (unboundedModel.getObjValue() < -1E-6) {
             val xiValues = xi.map { xi_i => (unboundedModel.getValue(xi_i) + 0.5).toInt }
-            val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }        
+            val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
+            println(s"Scenario added ${failurePattern}")
             ret = Option(new Scenario(failurePattern.toSet, 0.0))
           } else {
-            println(s"${unboundedModel.getObjValue()}")
-            println(s"UnboundedModel status: ${unboundedModel.getStatus}")
-            println(s"Crossmonment matrix is infeasible")
+            println(s"Cross moment matrix is infeasible")
           }
+        } else {
+          println("Should not come here erro xex1")
+          println(s"Pricing problem for unbound sepDual solved in ${timeCheckout()}s with status ${unboundedModel.getStatus()}")
         }
         ret
       }
@@ -302,7 +317,9 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
       println("Generating initial feasible scenarios")
 
       breakable { while (true) {
-        modelZsepDual.solve()        
+        recordNow()
+        modelZsepDual.solve()
+        println(s"Model ZsepDual solved in ${timeCheckout()} with status ${modelZsepDual.getStatus}")
         if (modelZsepDual.getStatus == IloCplex.Status.Optimal) {
           (0 until Cuts.size).foreach(i => {
             scenarios(i).prob = modelZsepDual.getDual(Cuts(i))
@@ -324,8 +341,8 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
           }
            
         } else {
-          println(modelZsepDual.getStatus)
           println("Should not come here: Erro 001")
+          println(s"Model ZsepDual solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()}")
         }
 
         if (timeLimitReached()) {
@@ -342,6 +359,7 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
     breakable { while (!modelInfeasible) {
       if (timeLimitReached()) {
         terminatedDueToTimeLimit = true
+        println("Break loop since time limit is reached")
         break
       }
       
@@ -357,26 +375,28 @@ class CrossMonmentSolver(override val instance: CrossMonmentProblemInstance, ove
           ReducedCostExpr.addTerm(-1.0 * betaValues(j), xi(j))
         }
 
-        for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMonmentMatrix(j1)(j2) > 0) {
+        for (j1 <- locationIndexes; j2 <- locationIndexes if j1 < j2 && crossMomentMatrix(j1)(j2) > 0) {
           ReducedCostExpr.remove(lambda(j1, j2))
           ReducedCostExpr.addTerm(-1.0 * betabarValues(j1, j2), lambda(j1, j2))
         }
 
         ReducedCost.setExpr(ReducedCostExpr)
+        
+        recordNow()
         pricingModel.solve()
 
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
-//          println(s"Pricing problem objective value: ${pricingModel.getObjValue}")
+          println(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}")          
           if (pricingModel.getObjValue() > 1E-6) {
             val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i) }
             val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
             ret = Option(new Scenario(failurePattern.toSet, 0.0))
           } else {
-//            println("Pricing problem has non positive objective value.")
+            println("Pricing problem found no pattern with non positive reduced cost.")
           }
         } else {
-          println(s"PricingModel status: ${pricingModel.getStatus}")
           println("Should not come here Error 01TX")
+          println(s"PricingModel status: ${pricingModel.getStatus}")
         }
         ret
       }

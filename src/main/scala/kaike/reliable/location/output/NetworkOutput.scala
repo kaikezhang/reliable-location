@@ -10,12 +10,12 @@ import org.json4s.JsonAST.JValue
 import org.json4s.JsonAST.JArray
 import scalaj.http._
 import kaike.reliable.location.model.RUFLPSolver
-import kaike.reliable.location.model.CrossMonmentSolver
+import kaike.reliable.location.model.CrossMomentSolver
 import scala.util.control.NonFatal
 import kaike.reliable.location.model.RobustUFLPSolver
 
 object NetworkOutput {
-  def jsonEncode(sol: LocationSolution) = {
+  def jsonEncode(sol: LocationSolution, log: String) = {
     val demandPointsList = sol.instance.demandPoints.map { x => x.toJArray }.toList
     val openFacilitiesList = sol.openDCs.map { x => x.toJArray }.toList
     var json =
@@ -30,11 +30,14 @@ object NetworkOutput {
         ("assignments" -> JArray(sol.assignments.toList.map(x => JArray(List(JInt(x._2.index), JInt(x._1.index)))))) ~
         ("gap" -> sol.gap * 100) ~
         ("status" -> sol.status)
+        
+    if(!log.equalsIgnoreCase(""))
+      json = json ~ ("log" -> log)
 
     sol.solver match {
       case rculpSolver: RUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
-      case rculpSolver: CrossMonmentSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+      case rculpSolver: CrossMomentSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case rculpSolver: RobustUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
@@ -61,21 +64,22 @@ object NetworkOutput {
   
   def sendData(jsonData: String ) = {
     attemp(10)(
-//      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
-      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)    
+      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
+//      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)    
   }
-  def post(sol: LocationSolution) = {
-    sendData(jsonEncode(sol))
+  def post(sol: LocationSolution, log: String = "") = {
+    sendData(jsonEncode(sol, log))
   }
   
-  def postError(model:CrossMonmentSolver) = {
+  def postError(model:CrossMomentSolver, log:String = "") = {
    var json =
       ("numberofNodes" -> model.candidateDCs.size) ~
       ("solver" -> model.SOLVER_NAME) ~
       ("problem" -> model.instance.problemName) ~
       ("status" -> "Error") ~
       ("parameters" -> model.instance.parameter.toString())
-   
+    if(!log.equalsIgnoreCase(""))
+      json = json ~ ("log" -> log)   
     sendData(compact(render(json)))  
   }
   
@@ -85,8 +89,7 @@ object NetworkOutput {
       ("solver" -> model.SOLVER_NAME) ~
       ("problem" -> model.instance.problemName) ~
       ("status" -> "Error") ~
-      ("parameters" -> model.instance.parameter.toString())
-   
+      ("parameters" -> model.instance.parameter.toString()) 
     sendData(compact(render(json)))  
   }  
 }

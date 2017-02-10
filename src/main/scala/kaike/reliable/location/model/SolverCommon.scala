@@ -30,4 +30,18 @@ abstract class SolverCommon(val instance:ProblemInstance, val instructor:SolverI
     timeLeft < 0
   }
   
+  
+  var lastRecordTime = collection.mutable.Map.empty[String, Double]
+    
+  def recordNow(id: String = "default") = {
+    lastRecordTime(id) = System.currentTimeMillis()
+  }  
+  def timeCheckout(id: String = "default"):Double = {
+    val ret = 1.0 * (System.currentTimeMillis() - lastRecordTime(id)) / 1000
+    recordNow(id)
+    ret
+  }
+  
+ 
+  
 }

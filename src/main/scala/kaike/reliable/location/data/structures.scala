@@ -51,7 +51,7 @@ case class StochasticReliableLocationParameter(alpha:Double = 1) {
     s"Alpha = ${"%.2f".format(alpha)}"
   }  
 }
-case class CrossMonmentParameter(alpha: Double = 1, theta:Int = 400) {
+case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400) {
   override def toString() = {
     s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
   }  
@@ -102,9 +102,9 @@ case class RobustReliableLocationProblemInstance( override val demandPoints: Ind
 
 class Scenario(val failures:Set[Int], var prob:Double)
   
-case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
+case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
                                        override val candidateLocations: IndexedSeq[CandidateLocation], 
-                                       parameter: CrossMonmentParameter = CrossMonmentParameter())
+                                       parameter: CrossMomentParameter = CrossMomentParameter())
                                                           extends ProblemInstance(demandPoints, candidateLocations, "Robust RUFLP Crossmonment") {
   val alpha = parameter.alpha
   val theta = parameter.theta
@@ -117,17 +117,19 @@ case class CrossMonmentProblemInstance(override val demandPoints: IndexedSeq[Dem
 
   private val nearestLoc = candidateLocationIndexes.map(i => candidateLocationIndexes.filter(j => j != i).minBy(j => candidateDistance(i)(j)) )
   
-  val crossMonmentMatrix = Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+  val crossMomentMatrix = Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     if(i == j)
       failRate(i)
     else if(j == nearestLoc(i) || i == nearestLoc(j)){
-      failRate(i) * failRate(j) // / alpha
-//      -1
-    } else
       -1
+    } else {
+      -1//failRate(i) * failRate(j)
+    }
   })
   
-  crossMonmentMatrix.foreach { x => println(x.mkString("[", ", ", "]")) }
+  println("Generated cross monment matrix:")
+  crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
+  println()
   
   val nbRealizations = candidateLocations.size
   

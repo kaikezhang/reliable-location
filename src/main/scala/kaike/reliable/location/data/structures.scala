@@ -144,8 +144,8 @@ case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[Dema
   }
   
   val realizations = (0 until nbRealizations).map(i => 
-//    generateSingletonScenario(i)
-    generateRandomScenario()
+    generateSingletonScenario(i)
+//    generateRandomScenario()
   )
   
 }

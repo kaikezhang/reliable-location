@@ -10,6 +10,7 @@ import kaike.reliable.location.model.CrossMomentSolver
 import java.io.ByteArrayOutputStream
 
 object experimentsCrossmoment {
+  
   def main(args: Array[String]): Unit = {
 
     val nodes = List("10", "20", "30")
@@ -26,8 +27,8 @@ object experimentsCrossmoment {
         val model = new CrossMomentSolver(instance, instructor)
 
         model.solve() match {
-          case Some(sol) => NetworkOutput.post(sol, outCapture.toString())
-          case _         => NetworkOutput.postError(model, outCapture.toString())
+          case Some(sol) => NetworkOutput.post(sol, trim(outCapture.toString()))
+          case _         => NetworkOutput.postError(model, trim(outCapture.toString()))
         }
       }
       outCapture.close()

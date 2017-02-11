@@ -17,7 +17,7 @@ object CrossMomentMain {
     val outCapture = new ByteArrayOutputStream
     
     Console.withOut(outCapture) {
-        val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData20.txt")
+        val (demands, dcs) = InstanceReader.readInstanceFrom("input//UCFLData10.txt")
         val parameter = CrossMomentParameter(alpha = 1.0, theta = 100)
         val instance = CrossMomentProblemInstance(demands, dcs, parameter)
         val instructor = SolverInstructor()
@@ -25,8 +25,8 @@ object CrossMomentMain {
         val model = new CrossMomentSolver(instance, instructor)
         
         model.solve() match {
-              case Some(sol) => NetworkOutput.post(sol, outCapture.toString())
-              case _         => NetworkOutput.postError(model, outCapture.toString())
+              case Some(sol) => NetworkOutput.post(sol, trim(outCapture.toString()))
+              case _         => NetworkOutput.postError(model, trim(outCapture.toString()))
         }        
     }
     

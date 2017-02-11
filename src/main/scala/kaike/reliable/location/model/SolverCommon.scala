@@ -8,6 +8,8 @@ import kaike.reliable.location.data.SolverInstructor
 abstract class SolverCommon(val instance:ProblemInstance, val instructor:SolverInstructor, val SOLVER_NAME:String) {
   def solve():Option[LocationSolution]
   
+  val EPS = 1E-3
+  
   val demands = instance.demandPoints
   val candidateDCs = instance.candidateLocations
   

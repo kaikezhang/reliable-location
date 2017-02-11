@@ -22,7 +22,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
   
   val crossMomentMatrix = instance.crossMomentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
 
-  println(s"Cross moment matrix with scala factor = ${SCALE_FACTOR}:")
+  println(s"Cross moment matrix with scale factor = ${SCALE_FACTOR}:")
   crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
   println()
 
@@ -59,10 +59,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
       beginTime = System.currentTimeMillis()
       breakable { while (true) {
-        if (timeLimitReached()) {
-          println("Time limit is reached break the loop")
-          break
-        }
+
         cuttingPlaneMainProblem.setParam(IloCplex.DoubleParam.TiLim, timeLeft())
 
         recordNow()
@@ -76,7 +73,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
           
           recordNow("seperate")
           val (trspCosts, scenarios) = SEPERATE(openValues)  
-          println(s"Seperate problem is solved in ${timeCheckout("seperate")}s")
+          println(s"Seperate problem is solved in ${timeCheckout("seperate")}s --- transportation costs: ${trspCosts} for solution ${openLocs}")
 
           if (scenarios.size == 0) {
             println("Time limit is reached during solving seperation problem.")
@@ -104,10 +101,15 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             }
           }
 
-          if (phiValue - trspCosts > -1E-6) {
+          if (phiValue - trspCosts > -EPS) {
             println("No cut is added due to the current phi value is greater than or equals to acctual transportation costs")
             break
           }
+          
+          if (timeLimitReached()) {
+            println("Time limit is reached break the loop")
+            break
+          }          
 
           var cut = cuttingPlaneMainProblem.linearNumExpr(trspCosts)
 
@@ -136,7 +138,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         val assignments = demandIndexes.map { i => {
             (demands(i), candidateDCs(openDCs.minBy { j => distance(i)(j) }) )
           } }.toSeq        
-        val status = if( timeLimitReached()) "Time reached" else  "Gap reached"
+        val status = if( timeLimitReached()) "Time Reached" else  "Gap Reached"
           
         println(s"Final Upper bound: ${upperBound} -- Lower bound: ${lowerBound} --- gap:${finalGap} ----status:${status} ----Time used:${timeUsed}")
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs.map { j => candidateDCs(j) }, assignments = assignments,
@@ -169,7 +171,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
     var sepDual_objValue = Double.MaxValue
 
-    val openLocs = locationIndexes.filter { j => openValues(j) }.toSet
+    val openLocs = TreeSet(locationIndexes.filter { j => openValues(j) }:_*)
 
     println(s"Solving seperate problem for ${openLocs}")
 
@@ -299,7 +301,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
        
         if (unboundedModel.getStatus() == IloCplex.Status.Optimal) {
            println(s"Pricing problem for unbounded ZsepDual solved in ${timeCheckout()}s with status ${unboundedModel.getStatus()} --- reduced costs = ${unboundedModel.getObjValue()}")
-          if (unboundedModel.getObjValue() < -1E-6) {
+          if (unboundedModel.getObjValue() < -EPS) {
             val xiValues = xi.map { xi_i => (unboundedModel.getValue(xi_i) + 0.5).toInt }
             val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
             println(s"Scenario added ${failurePattern}")
@@ -357,11 +359,6 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 //    println(modelZsepDual.getStatus)
 
     breakable { while (!modelInfeasible) {
-      if (timeLimitReached()) {
-        terminatedDueToTimeLimit = true
-        println("Break loop since time limit is reached")
-        break
-      }
       
       def solvePricingProblem(): Option[Scenario] = {
         var ret: Option[Scenario] = None
@@ -387,12 +384,12 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
           println(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}")          
-          if (pricingModel.getObjValue() > 1E-6) {
+          if (pricingModel.getObjValue() > EPS) {
             val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i) }
             val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
             ret = Option(new Scenario(failurePattern.toSet, 0.0))
           } else {
-            println("Pricing problem found no pattern with non positive reduced cost.")
+            println("Pricing problem found no pattern with positive reduced cost.")
           }
         } else {
           println("Should not come here Error 01TX")
@@ -403,10 +400,16 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       
       modelZsepDual.solve()
       
+      if (timeLimitReached()) {
+        terminatedDueToTimeLimit = true
+        println("Break loop since time limit is reached")
+        break
+      }      
+      
 //      println(modelZsepDual.getStatus)
 
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
-//        println(s"modelZsepDual problem objective value: ${modelZsepDual.getObjValue}")
+        print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)
         solvePricingProblem() match {
           case Some(scenario) => {
             modelZsepDualAddCutForScenario(scenario)

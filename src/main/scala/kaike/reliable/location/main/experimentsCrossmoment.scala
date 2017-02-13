@@ -13,15 +13,17 @@ object experimentsCrossmoment {
   
   def main(args: Array[String]): Unit = {
 
-    val nodes = List("10", "20", "30")
-    val alphas = (1.0 to 1.5 by 0.05)
-    val thetas = List(100, 200, 400)
+    val nodes = List( "10", "20", "30")
+    val alphas = (1.0 to 1.5 by 0.1)
+    val thetas = List( 200, 400, 800)
 
+    val matrixType = 3
+    
     for (node <- nodes; alpha <- alphas; theta <- thetas) {
       val outCapture = new ByteArrayOutputStream
       Console.withOut(outCapture) {
         val (demands, dcs) = InstanceReader.readInstanceFrom(s"input//UCFLData${node}.txt")
-        val parameter = CrossMomentParameter(alpha = alpha, theta = theta)
+        val parameter = CrossMomentParameter(alpha = alpha, theta = theta, matrixType = matrixType)
         val instance = CrossMomentProblemInstance(demands, dcs, parameter)
         val instructor = SolverInstructor()
         val model = new CrossMomentSolver(instance, instructor)

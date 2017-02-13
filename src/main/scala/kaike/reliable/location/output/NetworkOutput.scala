@@ -65,7 +65,7 @@ object NetworkOutput {
   def sendData(jsonData: String ) = {
     attemp(10)(
 //      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
-      () => Http("http://kaike.space/api/solutions/").postForm(Seq("data" -> jsonData)).asString)    
+      () => Http("http://kaike.space/api/solutions/").timeout(connTimeoutMs = 1000, readTimeoutMs = 20000).postForm(Seq("data" -> jsonData)).asString)    
   }
   def post(sol: LocationSolution, log: String = "") = {
     sendData(jsonEncode(sol, log))

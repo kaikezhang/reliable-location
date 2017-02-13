@@ -28,15 +28,15 @@ class RobustUFLPSolver(override val instance: RobustReliableLocationProblemInsta
     
     (0 to sortedLocs.size).foreach { j => 
       if(j == 0){
-        val failures = locationIndexes.filter { j => scenarioPattern(j) }.toSet
+        val failures = locationIndexes.filter { j => scenarioPattern(j) }
         scenarios += new Scenario(failures, failrate(sortedLocs(j)))
       } else if( j == sortedLocs.size){
         scenarioPattern(sortedLocs(j-1)) = false
-        val failures = locationIndexes.filter { j => scenarioPattern(j) }.toSet
+        val failures = locationIndexes.filter { j => scenarioPattern(j) }
         scenarios += new Scenario(failures, 1.0 -  failrate(sortedLocs(j-1)))          
       } else {
         scenarioPattern(sortedLocs(j-1)) = false
-        val failures = locationIndexes.filter { j => scenarioPattern(j) }.toSet
+        val failures = locationIndexes.filter { j => scenarioPattern(j) }
         scenarios += new Scenario(failures, failrate(sortedLocs(j)) -  failrate(sortedLocs(j-1)))           
       }
     }

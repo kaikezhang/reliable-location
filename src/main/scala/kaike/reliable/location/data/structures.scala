@@ -1,8 +1,10 @@
 package kaike.reliable.location.data
 
+import scala.collection.immutable.TreeSet
+
 import org.json4s.JsonAST.JArray
-import org.json4s.JsonAST.JInt
 import org.json4s.JsonAST.JDouble
+import org.json4s.JsonAST.JInt
 
 case class Coordinate(val lat: Double, val lng: Double);
 
@@ -51,9 +53,9 @@ case class StochasticReliableLocationParameter(alpha:Double = 1) {
     s"Alpha = ${"%.2f".format(alpha)}"
   }  
 }
-case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400) {
+case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400, matrixType:Int = 1) {
   override def toString() = {
-    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}"
+    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}\nMatrixType = ${matrixType}"
   }  
 }
 
@@ -100,7 +102,11 @@ case class RobustReliableLocationProblemInstance( override val demandPoints: Ind
 
 }
 
-class Scenario(val failures:Set[Int], var prob:Double)
+class Scenario(val failures:TreeSet[Int], var prob:Double){
+  def this(failuresSeq: Seq[Int], prob:Double) = {
+    this(failuresSeq.to[TreeSet], prob)
+  }
+}
   
 case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
                                        override val candidateLocations: IndexedSeq[CandidateLocation], 
@@ -109,7 +115,11 @@ case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[Dema
   val alpha = parameter.alpha
   val theta = parameter.theta
   val newOrleans = Coordinate(30.07, -89.93)
-  val failRate = candidateLocationIndexes.map { i => Math.min(1, alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  
+  println("""
+failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1  * alpha  * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  """)
+  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
   
   private val candidateDistance = Array.tabulate(candidateLocations.length, candidateLocations.length)((i,j) => {
     GeoComputer.distance(candidateLocations(i), candidateLocations(j))
@@ -117,29 +127,87 @@ case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[Dema
 
   private val nearestLoc = candidateLocationIndexes.map(i => candidateLocationIndexes.filter(j => j != i).minBy(j => candidateDistance(i)(j)) )
   
-  val crossMomentMatrix = Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+  def generateCrossMomentMatrixPattern1() = {
+  println("""
+crossMomentMatrix === (i, j) => {
+    if(i == j)
+      failRate(i)
+    else 
+      - 1
+} 
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else 
+        - 1
+    })    
+  }
+  
+  def generateCrossMomentMatrixPattern2() = {
+  println("""
+crossMomentMatrix === (i, j) => {
     if(i == j)
       failRate(i)
     else if(j == nearestLoc(i) || i == nearestLoc(j)){
+      failRate(i) * failRate(j) * alpha
+    } else
       -1
-    } else {
-      -1//failRate(i) * failRate(j)
-    }
-  })
+} 
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else if(j == nearestLoc(i) || i == nearestLoc(j)){
+        failRate(i) * failRate(j) * alpha
+      } else
+        -1
+    })    
+  }  
+
+  def random(a:Double, b:Double) = {
+    a + (b-a) * Math.random()
+  }
+  def generateCrossMomentMatrixPattern3() = {
+  println("""
+crossMomentMatrix === (i, j) => {
+    if(i == j)
+      failRate(i)
+    else
+      failRate(i) * failRate(j) * random(0.5, 1.5)
+}
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else
+        failRate(i) * failRate(j) * random(0.5, 1.5)
+    })    
+  } 
   
-  println("Generated cross monment matrix:")
+  
+  val crossMomentMatrix:Array[Array[Double]] = parameter.matrixType match {
+    case 1 => generateCrossMomentMatrixPattern1()
+    case 2 => generateCrossMomentMatrixPattern2()
+    case 3 => generateCrossMomentMatrixPattern3()
+    case _ => {
+      throw new IllegalArgumentException("Pattern not supported")
+    }
+  }
+  
+  println("Generated cross moment matrix:")
   crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
   println()
   
   val nbRealizations = candidateLocations.size
   
   def generateRandomScenario(): Scenario = {
-    val failures = candidateLocationIndexes.filter { j => Math.random() > 0.5 }.toSet
+    val failures = candidateLocationIndexes.filter { j => Math.random() > 0.5 }
     new Scenario(failures, 0)
   }
   
   def generateSingletonScenario(i: Int): Scenario = {
-    val failures = candidateLocationIndexes.filter { j => j == i }.toSet
+    val failures = candidateLocationIndexes.filter { j => j == i }
     new Scenario(failures, 0)    
   }
   

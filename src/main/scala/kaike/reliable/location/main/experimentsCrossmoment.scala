@@ -17,7 +17,7 @@ object experimentsCrossmoment {
     val alphas = (1.0 to 1.5 by 0.1)
     val thetas = List( 200, 400, 800)
 
-    val matrixType = 3
+    val matrixType = 5
     
     for (node <- nodes; alpha <- alphas; theta <- thetas) {
       val outCapture = new ByteArrayOutputStream

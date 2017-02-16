@@ -183,13 +183,75 @@ crossMomentMatrix === (i, j) => {
       else
         failRate(i) * failRate(j) * random(0.5, 1.5)
     })    
-  } 
+  }
   
+  def generateCrossMomentMatrixPattern4() = {
+  println("""
+(i, j) => {
+    if(i == j)
+      failRate(i)
+    else if(candidateDistance(i)(j) < 200 )
+      failRate(i) * failRate(j) * (1 + Math.exp(- candidateDistance(i)(j) / 200 ))
+    else
+      -1
+}
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else if(candidateDistance(i)(j) < 200 )
+        failRate(i) * failRate(j) * (1 + Math.exp(- candidateDistance(i)(j) / 200 ))
+      else
+        -1
+    })    
+  }  
   
+   def generateCrossMomentMatrixPattern5() = {
+    println("""
+val scenarios = (1 to (1000 * candidateLocations.size * candidateLocations.size)).map { i => {
+  generateRandomScenarioAccordingFailureRate()
+} }
+
+def count(j:Int) = {
+  scenarios.map { x => if(x.failures.contains(j)) 1 else 0 }.sum
+}
+
+def countConOccurrence(i:Int, j:Int) = {
+  scenarios.map { x => if(x.failures.contains(i) && x.failures.contains(j)) 1 else 0 }.sum
+}
+Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+  if(i == j)
+    1.0 * count(i) / scenarios.size
+  else
+    1.0 * countConOccurrence(i, j) / scenarios.size
+}) 
+  """)
+  
+    val scenarios = (1 to (1000 * candidateLocations.size * candidateLocations.size)).map { i => {
+      generateRandomScenarioAccordingFailureRate()
+    } }
+    
+    def count(j:Int) = {
+      scenarios.map { x => if(x.failures.contains(j)) 1 else 0 }.sum
+    }
+    
+    def countConOccurrence(i:Int, j:Int) = {
+      scenarios.map { x => if(x.failures.contains(i) && x.failures.contains(j)) 1 else 0 }.sum
+    }
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        1.0 * count(i) / scenarios.size
+      else
+        1.0 * countConOccurrence(i, j) / scenarios.size
+    })    
+  }  
+   
   val crossMomentMatrix:Array[Array[Double]] = parameter.matrixType match {
     case 1 => generateCrossMomentMatrixPattern1()
     case 2 => generateCrossMomentMatrixPattern2()
     case 3 => generateCrossMomentMatrixPattern3()
+    case 4 => generateCrossMomentMatrixPattern4()
+    case 5 => generateCrossMomentMatrixPattern5()
     case _ => {
       throw new IllegalArgumentException("Pattern not supported")
     }
@@ -200,6 +262,11 @@ crossMomentMatrix === (i, j) => {
   println()
   
   val nbRealizations = candidateLocations.size
+  
+  def generateRandomScenarioAccordingFailureRate() = {
+    val failures = candidateLocationIndexes.filter { j => Math.random() < failRate(j) }
+    new Scenario(failures, 0)    
+  }
   
   def generateRandomScenario(): Scenario = {
     val failures = candidateLocationIndexes.filter { j => Math.random() > 0.5 }

@@ -366,6 +366,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 //    println(modelZsepDual.getStatus)
 
     var lastObjValueModelZsepDual = 0.0
+    var noImproveCount = 0
     breakable { while (!modelInfeasible) {
       
       def solvePricingProblem(): Option[Scenario] = {
@@ -417,18 +418,26 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 //      println(modelZsepDual.getStatus)
       
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
-        print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)
-        if(modelZsepDual.getObjValue() - lastObjValueModelZsepDual > 0.1 * SCALE_FACTOR ){ // improve robustness, otherwise the algorithm may be stuck at some iteration
-          lastObjValueModelZsepDual = modelZsepDual.getObjValue() 
-          solvePricingProblem() match {
-            case Some(scenario) => {
-              modelZsepDualAddCutForScenario(scenario)
-            }
-            case _ => break
+        print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)         
+        solvePricingProblem() match {
+          case Some(scenario) => {
+            modelZsepDualAddCutForScenario(scenario)
           }
-        } else {
-          break
+          case _ => {
+            println()
+            break
+          }
         }
+        if(modelZsepDual.getObjValue() - lastObjValueModelZsepDual > 0.01 * SCALE_FACTOR ){ // improve robustness, otherwise the algorithm may be stuck at some iteration        
+           noImproveCount = 0
+        } else {
+          noImproveCount += 1
+          if(noImproveCount > 5){
+            println()
+            break
+          }
+        }
+        lastObjValueModelZsepDual = modelZsepDual.getObjValue()
       } else {
         println("Should not come here Error x2tv")
         println("ModelZsepDual status: " + modelZsepDual.getStatus)

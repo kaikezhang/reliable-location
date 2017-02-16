@@ -419,6 +419,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
         print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)         
+        val currentObj = modelZsepDual.getObjValue()
         solvePricingProblem() match {
           case Some(scenario) => {
             modelZsepDualAddCutForScenario(scenario)
@@ -428,7 +429,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             break
           }
         }
-        if(modelZsepDual.getObjValue() - lastObjValueModelZsepDual > 0.01 * SCALE_FACTOR ){ // improve robustness, otherwise the algorithm may be stuck at some iteration        
+        if(currentObj - lastObjValueModelZsepDual > 0.01 * SCALE_FACTOR ){ // improve robustness, otherwise the algorithm may be stuck at some iteration        
            noImproveCount = 0
         } else {
           noImproveCount += 1
@@ -437,7 +438,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             break
           }
         }
-        lastObjValueModelZsepDual = modelZsepDual.getObjValue()
+        lastObjValueModelZsepDual = currentObj
       } else {
         println("Should not come here Error x2tv")
         println("ModelZsepDual status: " + modelZsepDual.getStatus)

@@ -208,7 +208,7 @@ crossMomentMatrix === (i, j) => {
   
    def generateCrossMomentMatrixPattern5() = {
     println("""
-val scenarios = (1 to (1000 * candidateLocations.size * candidateLocations.size)).map { i => {
+val scenarios = (1 to (10 * candidateLocations.size * candidateLocations.size)).map { i => {
   generateRandomScenarioAccordingFailureRate()
 } }
 
@@ -227,7 +227,7 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
 }) 
   """)
   
-    val scenarios = (1 to (1000 * candidateLocations.size * candidateLocations.size)).map { i => {
+    val scenarios = (1 to (10 * candidateLocations.size * candidateLocations.size)).map { i => {
       generateRandomScenarioAccordingFailureRate()
     } }
     

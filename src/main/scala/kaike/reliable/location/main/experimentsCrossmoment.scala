@@ -24,7 +24,7 @@ object experimentsCrossmoment {
       val outCapture = new ByteArrayOutputStream
       Console.withOut(outCapture) {
         val (demands, dcs) = InstanceReader.readInstanceFrom(s"input//UCFLData${node}.txt")
-        val parameter = CrossMomentParameter(alpha = alpha, theta = theta, matrixType = matrixType)
+        val parameter = CrossMomentParameter(alpha = alpha, theta = theta, matrixType = matrixType, failrateType = failrateType)
         val instance = CrossMomentProblemInstance(demands, dcs, parameter)
         val instructor = SolverInstructor()
         val model = new CrossMomentSolver(instance, instructor)

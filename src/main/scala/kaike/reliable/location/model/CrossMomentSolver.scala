@@ -368,8 +368,9 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     
 //    println(modelZsepDual.getStatus)
 
-    var lastObjValueModelZsepDual = 0.0
-    var noImproveCount = 0
+
+    var lastAddedPattern = Set.empty[Int]
+    
     breakable { while (!modelInfeasible) {
       
       def solvePricingProblem(): Option[Scenario] = {
@@ -422,20 +423,15 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       
       if(modelZsepDual.getStatus == IloCplex.Status.Optimal){
         print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)         
-        val currentObj = modelZsepDual.getObjValue()
-        if(currentObj - lastObjValueModelZsepDual > 0.01 * SCALE_FACTOR){ // improve robustness, otherwise the algorithm may be stuck at some iteration        
-           noImproveCount = 0
-        } else {
-          noImproveCount += 1
-          if(noImproveCount > 20){
-            println()
-            break
-          }
-        }
-        lastObjValueModelZsepDual = currentObj
-        
+
         solvePricingProblem() match {
           case Some(scenario) => {
+            if(lastAddedPattern == scenario.failures){
+              println("Duplicate pattern added. Terminate pricing.")
+              break
+            } else {
+              lastAddedPattern = scenario.failures
+            }            
             modelZsepDualAddCutForScenario(scenario)
           }
           case _ => {

@@ -53,7 +53,7 @@ case class StochasticReliableLocationParameter(alpha:Double = 1) {
     s"Alpha = ${"%.2f".format(alpha)}"
   }  
 }
-case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400, matrixType:Int = 1) {
+case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400, matrixType:Int = 1, failrateType:Int = 1) {
   override def toString() = {
     s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}\nMatrixType = ${matrixType}"
   }  
@@ -116,11 +116,22 @@ case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[Dema
   val theta = parameter.theta
   val newOrleans = Coordinate(30.07, -89.93)
   
+
+  
+  val failRate = parameter.failrateType match {
+    case 1 => {
   println("""
 failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1  * alpha  * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
   """)
-  val failRate = candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
-  
+      candidateLocationIndexes.map { i => Math.min(1, 0.01 + 0.1 * alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }      
+    }
+    case 2 => {
+  println("""
+failRate = candidateLocationIndexes.map { i => Math.min(1,  alpha  * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }
+  """)
+      candidateLocationIndexes.map { i => Math.min(1,  alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))) }      
+    }
+  }
   private val candidateDistance = Array.tabulate(candidateLocations.length, candidateLocations.length)((i,j) => {
     GeoComputer.distance(candidateLocations(i), candidateLocations(j))
   })

@@ -98,6 +98,7 @@ abstract class CuttingPlaneLazyConstraintImplementation(override val instance: R
       cplex.setOut(null)
       cplex.use(newLazyCutClass(cplex, open, phi))
 
+      cplex.setParam(IloCplex.DoubleParam.EpGap, 0)
       cplex.setParam(IloCplex.DoubleParam.TiLim, instructor.timeLimit)
       beginTime = System.currentTimeMillis()
       if (cplex.solve()) {
@@ -109,12 +110,15 @@ abstract class CuttingPlaneLazyConstraintImplementation(override val instance: R
           (demands(i), candidateDCs(openIndexes.minBy { j => distance(i)(j) }) )
         } }.toSeq
      
-        if(lowerBound < cplex.getBestObjValue)
+        if(lowerBound < cplex.getBestObjValue){
+          println(s"Lower bound updated by the master MIP bestObjValue ${lowerBound} -> ${cplex.getBestObjValue}")
           lowerBound = cplex.getBestObjValue
-          
+        }
+        
+        
         var finalGap = (upperBound - lowerBound) / lowerBound
         if(finalGap < 0) finalGap = 0.0
-        
+        println(s"Final Upper bound: ${upperBound}, Lower Bound: ${lowerBound}, Gap: ${finalGap}")
         val status = if( timeLimitReached()) "Time Reached" else  "Gap Reached"
           
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,

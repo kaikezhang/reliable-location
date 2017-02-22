@@ -208,7 +208,7 @@ crossMomentMatrix === (i, j) => {
   
    def generateCrossMomentMatrixPattern5() = {
     println("""
-val scenarios = (1 to (10 * candidateLocations.size * candidateLocations.size)).map { i => {
+val scenarios = (1 to (candidateLocations.size * candidateLocations.size)).map { i => {
   generateRandomScenarioAccordingFailureRate()
 } }
 
@@ -227,7 +227,7 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
 }) 
   """)
   
-    val scenarios = (1 to (10 * candidateLocations.size * candidateLocations.size)).map { i => {
+    val scenarios = (1 to (candidateLocations.size * candidateLocations.size)).map { i => {
       generateRandomScenarioAccordingFailureRate()
     } }
     
@@ -245,13 +245,53 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
         1.0 * countConOccurrence(i, j) / scenarios.size
     })    
   }  
-   
+ 
+   def generateCrossMomentMatrixPattern6() = {
+    println("""
+val scenarios = (1 to (candidateLocations.size * 5)).map { i => {
+  generateRandomScenarioAccordingFailureRate()
+} }
+
+realizations = scenarios.toSet
+
+Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+  if(i == j)
+    1.0 * count(i) / scenarios.size
+  else
+    1.0 * countConOccurrence(i, j) / scenarios.size
+}) 
+  """)
+  
+    val scenarios = (1 to (candidateLocations.size * 5)).map { i => {
+      generateRandomScenarioAccordingFailureRate()
+    } }
+    
+    realizations = scenarios.toSet
+    
+    def count(j:Int) = {
+      scenarios.map { x => if(x.failures.contains(j)) 1 else 0 }.sum
+    }
+    
+    def countConOccurrence(i:Int, j:Int) = {
+      scenarios.map { x => if(x.failures.contains(i) && x.failures.contains(j)) 1 else 0 }.sum
+    }
+    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        1.0 * count(i) / scenarios.size
+      else
+        1.0 * countConOccurrence(i, j) / scenarios.size
+    })    
+  }
+  
+  var realizations = Set.empty[Scenario]
   val crossMomentMatrix:Array[Array[Double]] = parameter.matrixType match {
     case 1 => generateCrossMomentMatrixPattern1()
     case 2 => generateCrossMomentMatrixPattern2()
     case 3 => generateCrossMomentMatrixPattern3()
     case 4 => generateCrossMomentMatrixPattern4()
     case 5 => generateCrossMomentMatrixPattern5()
+    case 6 => generateCrossMomentMatrixPattern6()
     case _ => {
       throw new IllegalArgumentException("Pattern not supported")
     }
@@ -261,8 +301,16 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
   crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
   println()
   
-  val nbRealizations = candidateLocations.size
+  private val nbRealizations = candidateLocations.size
   
+  if(realizations.size == 0){
+    realizations = (0 until nbRealizations).map(i => 
+    generateSingletonScenario(i)).toSet
+  } else {
+    realizations  = realizations + allOnline()
+    realizations  = realizations + allOffline()
+  }
+
   def generateRandomScenarioAccordingFailureRate() = {
     val failures = candidateLocationIndexes.filter { j => Math.random() < failRate(j) }
     new Scenario(failures, 0)    
@@ -278,10 +326,17 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     new Scenario(failures, 0)    
   }
   
-  val realizations = (0 until nbRealizations).map(i => 
-    generateSingletonScenario(i)
-//    generateRandomScenario()
-  )
+  def allOnline():Scenario = {
+    val failures = candidateLocationIndexes
+    new Scenario(failures, 0)       
+  }
+  
+  def allOffline():Scenario = {
+    val failures = candidateLocationIndexes.filter { x => false }
+    new Scenario(failures, 0)       
+  }  
+  
+
   
 }
 

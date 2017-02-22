@@ -13,11 +13,11 @@ object experimentsCrossmoment {
   
   def main(args: Array[String]): Unit = {
 
-    val nodes = List( "10", "20", "30")
+    val nodes = List( "10", "20", "30", "50")
     val alphas = (1.0 to 1.5 by 0.1)
     val thetas = List( 200, 400, 800)
 
-    val matrixType = 5
+    val matrixType = 6
     
     for (node <- nodes; alpha <- alphas; theta <- thetas) {
       val outCapture = new ByteArrayOutputStream

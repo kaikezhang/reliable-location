@@ -13,6 +13,7 @@ import kaike.reliable.location.model.RUFLPSolver
 import kaike.reliable.location.model.CrossMomentSolver
 import scala.util.control.NonFatal
 import kaike.reliable.location.model.RobustUFLPSolver
+import kaike.reliable.location.model.RUFLPSimpleCutSolver
 
 object NetworkOutput {
   def jsonEncode(sol: LocationSolution, log: String) = {
@@ -41,6 +42,8 @@ object NetworkOutput {
         ("nbCuts" -> rculpSolver.nbCuts)
       case rculpSolver: RobustUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
+      case rculpSolver: RUFLPSimpleCutSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+        ("nbCuts" -> rculpSolver.nbCuts)        
       case _ =>
     }
 
@@ -64,8 +67,8 @@ object NetworkOutput {
   
   def sendData(jsonData: String ) = {
     attemp(10)(
-//      () => Http("http://location-solution-visualize.dev/api/solutions/").postForm(Seq("data" -> jsonData)).asString)
-      () => Http("http://kaike.space/api/solutions/").timeout(connTimeoutMs = 1000, readTimeoutMs = 20000).postForm(Seq("data" -> jsonData)).asString)    
+//      () => Http("http://location-solution-visualize.dev/api/solutions/").timeout(connTimeoutMs = 10000, readTimeoutMs = 20000).postForm(Seq("data" -> jsonData)).asString)
+      () => Http("http://kaike.space/api/solutions/").timeout(connTimeoutMs = 10000, readTimeoutMs = 20000).postForm(Seq("data" -> jsonData)).asString)    
   }
   def post(sol: LocationSolution, log: String = "") = {
     sendData(jsonEncode(sol, log))

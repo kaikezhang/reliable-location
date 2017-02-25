@@ -423,8 +423,13 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
               }
             })
             println(s"Scearios added: ${scenariosToAdd.map { x => x.failures }.mkString(", ")}")
-            ret = Option(scenariosToAdd)
+            if(scenariosToAdd.size == 0){            
+              ret = None
+            } else {
+              ret = Option(scenariosToAdd)
+            }
             println(s"Get solutions pool used time: ${timeCheckout()}s")
+            
           } else {
             println("Pricing problem found no pattern with positive reduced cost.")
           }

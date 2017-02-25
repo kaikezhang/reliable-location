@@ -55,7 +55,7 @@ case class StochasticReliableLocationParameter(alpha:Double = 1) {
 }
 case class CrossMomentParameter(alpha: Double = 1, theta:Int = 400, matrixType:Int = 1, failrateType:Int = 1) {
   override def toString() = {
-    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}\nMatrixType = ${matrixType}"
+    s"Alpha = ${"%.2f".format(alpha)}\nTheta = ${theta}\nMatrixType = ${matrixType}\nfailrateType = ${failrateType}"
   }  
 }
 

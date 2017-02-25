@@ -407,15 +407,24 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
           println(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}")          
           if (pricingModel.getObjValue() > EPS) {
-            pricingModel.populate()
+            recordNow()
+//            pricingModel.populate()
             val nSolutions = pricingModel.getSolnPoolNsolns()
-            val scenariosToAdd = (0 until nSolutions).map(k => {
-              val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i, k) }
-              val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
-              new Scenario(failurePattern, pricingModel.getObjValue(k))
-            }).filter { x => x.prob > 0 && !patternsInModelZsepDual.contains(x.failures)}.toSeq
+            var scenariosToAdd = Seq.empty[Scenario]
+           
+            (0 until nSolutions).foreach(k => {
+              if(pricingModel.getObjValue(k) > 0){
+                val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i, k) }
+                val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
+                val scenario = new Scenario(failurePattern, 0)               
+                if(! patternsInModelZsepDual.contains(scenario.failures)){
+                  scenariosToAdd = scenariosToAdd :+ scenario
+                }              
+              }
+            })
             println(s"Scearios added: ${scenariosToAdd.map { x => x.failures }.mkString(", ")}")
             ret = Option(scenariosToAdd)
+            println(s"Get solutions pool used time: ${timeCheckout()}s")
           } else {
             println("Pricing problem found no pattern with positive reduced cost.")
           }
@@ -425,7 +434,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         }
         ret
       }
-      
+      recordNow()
       modelZsepDual.solve()
       
       if (timeLimitReached()) {
@@ -447,7 +456,10 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             } else {
               lastAddedPattern = scenarios.head.failures
             }
-            scenarios.foreach { scenario => modelZsepDualAddCutForScenario(scenario) }
+            scenarios.foreach { scenario => {
+              modelZsepDualAddCutForScenario(scenario)
+              }
+            }
           }
           case _ => {
             println()

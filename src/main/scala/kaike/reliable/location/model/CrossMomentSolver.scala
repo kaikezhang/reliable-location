@@ -182,6 +182,8 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     var sepDual_objValue = Double.MaxValue
 
     val openLocs = TreeSet(locationIndexes.filter { j => openValues(j) }:_*)
+    
+    val patternsInModelZsepDual = collection.mutable.HashSet.empty[Set[Int]]
 
     if(generateIntitialScenario)
       println(s"Generating initial scenarios assuming a solution with open locations ${openLocs}")
@@ -226,6 +228,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       val cut = modelZsepDual.addGe(cutlhs, getTransptCostsForScenario(openLocs, scenario))
       Cuts += cut
       scenarios += scenario
+      patternsInModelZsepDual += scenario.failures
     }
 
     if(generateIntitialScenario){
@@ -371,10 +374,14 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
     var lastAddedPattern = Set.empty[Int]
     
+    pricingModel.setParam(IloCplex.IntParam.SolnPoolCapacity, 10)
+    pricingModel.setParam(IloCplex.IntParam.PopulateLim, 100)
+    
+    
     breakable { while (!modelInfeasible) {
       
-      def solvePricingProblem(): Option[Scenario] = {
-        var ret: Option[Scenario] = None
+      def solvePricingProblem(): Option[Seq[Scenario]] = {
+        var ret: Option[Seq[Scenario]] = None
         val alphaValue = modelZsepDual.getValue(alpha)
         val betaValues = beta.map { beta_i => modelZsepDual.getValue(beta_i) }
         val betabarValues = betabar.mapValues { variable => modelZsepDual.getValue(variable) }
@@ -392,15 +399,23 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
         ReducedCost.setExpr(ReducedCostExpr)
         
+//        pricingModel.addRangeFilter(-1E-6, Double.MaxValue, Array(ReducedCostExpr), Array(1.0))
+        
         recordNow()
         pricingModel.solve()
 
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
           println(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}")          
           if (pricingModel.getObjValue() > EPS) {
-            val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i) }
-            val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
-            ret = Option(new Scenario(failurePattern, 0.0))
+            pricingModel.populate()
+            val nSolutions = pricingModel.getSolnPoolNsolns()
+            val scenariosToAdd = (0 until nSolutions).map(k => {
+              val xiValues = xi.map { xi_i => pricingModel.getValue(xi_i, k) }
+              val failurePattern = locationIndexes.filter { j => xiValues(j) > 0.5 }
+              new Scenario(failurePattern, pricingModel.getObjValue(k))
+            }).filter { x => x.prob > 0 && !patternsInModelZsepDual.contains(x.failures)}.toSeq
+            println(s"Scearios added: ${scenariosToAdd.map { x => x.failures }.mkString(", ")}")
+            ret = Option(scenariosToAdd)
           } else {
             println("Pricing problem found no pattern with positive reduced cost.")
           }
@@ -425,14 +440,14 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         print(s"modelZsepDual is solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus()} --- objective value = ${modelZsepDual.getObjValue()}".padTo(120, " ").mkString)         
 
         solvePricingProblem() match {
-          case Some(scenario) => {
-            if(lastAddedPattern == scenario.failures){
+          case Some(scenarios) => {
+            if(lastAddedPattern == scenarios.head.failures){
               println("Duplicate pattern added. Terminate pricing.")
               break
             } else {
-              lastAddedPattern = scenario.failures
-            }            
-            modelZsepDualAddCutForScenario(scenario)
+              lastAddedPattern = scenarios.head.failures
+            }
+            scenarios.foreach { scenario => modelZsepDualAddCutForScenario(scenario) }
           }
           case _ => {
             println()

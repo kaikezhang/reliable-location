@@ -101,7 +101,7 @@ class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstan
       }
       
       nbCuts = nbCuts + 1
-      println(s"eta >= ${solutionTrspCosts} ${logTerms.mkString(" ")} ")
+//      println(s"eta >= ${solutionTrspCosts} ${logTerms.mkString(" ")} ")
       add(cplex.ge(cplex.diff(phi, cut), 0))
     }
     

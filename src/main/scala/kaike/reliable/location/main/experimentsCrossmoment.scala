@@ -9,11 +9,14 @@ import kaike.reliable.location.data.SolverInstructor
 import kaike.reliable.location.model.CrossMomentSolver
 import java.io.ByteArrayOutputStream
 
+import java.io.BufferedOutputStream
+
+
 object experimentsCrossmoment {
   
   def main(args: Array[String]): Unit = {
 
-    val nodes = List( "10", "20", "30")
+    val nodes = List( "20")
     val alphas = (0.1 to 0.31 by 0.1)
     val thetas = List( 200, 400, 800)
 

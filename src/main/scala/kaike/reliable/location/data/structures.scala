@@ -315,11 +315,15 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
   private val nbRealizations = candidateLocations.size
   
   if(realizations.size == 0){
-    realizations = (0 until nbRealizations).map(i => 
+    realizations = realizations ++ (0 until nbRealizations).map(i => 
     generateSingletonScenario(i)).toSet
+    realizations = realizations ++ specialScenarios()
+    realizations  = realizations + noneFail()
+    realizations  = realizations + allFailures()    
   } else {
-    realizations  = realizations + allOnline()
-    realizations  = realizations + allOffline()
+    realizations  = realizations + noneFail()
+    realizations  = realizations + allFailures()
+    realizations = realizations ++ specialScenarios()
   }
 
   def generateRandomScenarioAccordingFailureRate() = {
@@ -337,17 +341,29 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     new Scenario(failures, 0)    
   }
   
-  def allOnline():Scenario = {
+  def allFailures():Scenario = {
     val failures = candidateLocationIndexes
     new Scenario(failures, 0)       
   }
   
-  def allOffline():Scenario = {
+  def noneFail():Scenario = {
     val failures = candidateLocationIndexes.filter { x => false }
     new Scenario(failures, 0)       
-  }  
+  }
   
-
+  def specialScenarios():Seq[Scenario] = {
+    demandsPointIndexes.map { i => {
+      val sortedLocationIndexes = candidateLocationIndexes.sortBy { j => distance(i)(j) }
+      var failLocs = TreeSet.empty[Int]
+      var scenarios = Set.empty[Scenario]
+      sortedLocationIndexes.foreach { j => {
+        failLocs = failLocs + j
+        scenarios = scenarios + new Scenario(failLocs, 0)
+      } }
+      scenarios
+    } }.flatten
+  }
+  
   
 }
 

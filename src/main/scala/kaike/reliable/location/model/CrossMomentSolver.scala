@@ -1,20 +1,18 @@
 package kaike.reliable.location.model
 
-import kaike.reliable.location.data.SolverInstructor
-import ilog.cplex.IloCplex
-import kaike.reliable.location.data.LocationSolution
-import ilog.cplex.CpxException
-import scala.util.control.NonFatal
-import ilog.cplex.IloCplex.LazyConstraintCallback
-import ilog.concert.IloIntVar
-import kaike.reliable.location.data.CandidateLocation
-import ilog.concert.IloNumVar
-import kaike.reliable.location.data.DemandPoint
 import scala.collection.immutable.TreeSet
-import kaike.reliable.location.data.CrossMomentProblemInstance
-import scala.util.control.Breaks._
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+import scala.util.control.NonFatal
+
+import ilog.concert.IloNumVar
 import ilog.concert.IloRange
+import ilog.cplex.CpxException
+import ilog.cplex.IloCplex
+import kaike.reliable.location.data.CrossMomentProblemInstance
+import kaike.reliable.location.data.LocationSolution
 import kaike.reliable.location.data.Scenario
+import kaike.reliable.location.data.SolverInstructor
 
 class CrossMomentSolver(override val instance: CrossMomentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
@@ -59,9 +57,8 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 
       beginTime = System.currentTimeMillis()
       
-      generateInitialScenarios(0.1)
+      generateInitialScenarios()
       
-      var firstStage = true
       
       breakable { while (!modelInfeasible) {
         
@@ -76,6 +73,13 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
           val openLocs = locationIndexes.filter { j => openValues(j) }
           val setupCosts = openLocs.map { j => candidateDCs(j).fixedCosts }.sum
           val phiValue = cuttingPlaneMainProblem.getValue(phi)
+          
+          val clb = cuttingPlaneMainProblem.getBestObjValue
+
+          if (lowerBound < clb) {
+            println(s"Lower bound updated: ${lowerBound} -> ${clb}")
+            lowerBound = clb
+          } 
           
           def addSupermodularCut(transpCosts:Double, scenarios: Seq[Scenario]) = {
             var cut = cuttingPlaneMainProblem.linearNumExpr(transpCosts)
@@ -93,16 +97,17 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
           println(s"Cutting plane master problem -- obj:${cuttingPlaneMainProblem.getObjValue} phi:${phiValue} in ${timeCheckout()}s")
           
           println(s"Seperate solution ${openLocs.to[TreeSet]}")
-          if(firstStage){
-            val optimisticEstTransportationCosts =  getTransptCostsForScenarios(openLocs.toSet, InitialScenarios)
-            println(s"Attempt to use optimistic cut with estimation of transportation costs ${optimisticEstTransportationCosts}")
-            if(optimisticEstTransportationCosts > phiValue)
-              addSupermodularCut(optimisticEstTransportationCosts, InitialScenarios)
-            else
-              firstStage = false
+
+          val optimisticEstTransportationCosts =  getTransptCostsForScenarios(openLocs.toSet, InitialScenarios)
+          println(s"Attempt to use optimistic cut with estimation of transportation costs ${optimisticEstTransportationCosts}")
+          
+          if(optimisticEstTransportationCosts > phiValue + 1E-6){
+             addSupermodularCut(optimisticEstTransportationCosts, InitialScenarios)          
           } else {
+
           recordNow("Seperation")
-          val (trspCosts, scenarios) = SEPERATE(openValues = openValues, gap = 0.1)  
+//          println("Seperate solution with column generation")
+          val (trspCosts, scenarios) = SEPERATE(openValues = openValues)  
           println(s"Seperation problem is solved in ${timeCheckout("Seperation")}s --- transportation costs: ${trspCosts} for solution ${openLocs}")
 
           if (scenarios.size == 0) {
@@ -110,13 +115,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             break
           }
 
-          val clb = cuttingPlaneMainProblem.getBestObjValue
           val cub = setupCosts + trspCosts
-
-          if (lowerBound < clb) {
-            println(s"Lower bound updated: ${lowerBound} -> ${clb}")
-            lowerBound = clb
-          }
 
           if (upperBound > cub) {
             println(s"Upper bound updated: ${upperBound} -> ${cub}")
@@ -140,11 +139,9 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
             println("Time limit is reached break the loop")
             break
           }          
-
+          InitialScenarios = scenarios.toArray
           addSupermodularCut(trspCosts, scenarios)
-          
           }
-
         } else {
           throw new Exception(s"Cutting Plane Master Problem has status ${cuttingPlaneMainProblem.getStatus} when it should be solved.")
         }
@@ -186,13 +183,13 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     ret
   }
   
-  def generateInitialScenarios(gap:Double = 0.05) = {
+  def generateInitialScenarios() = {
     val openValues: IndexedSeq[Boolean] = locationIndexes.map(i => true)
     println(s"Generating initial scenarios assuming a solution with open locations ${locationIndexes.filter { x => openValues(x) }.to[TreeSet]}")
-    SEPERATE(openValues = locationIndexes.map(i => true), generateIntitialScenario = true, gap = gap)
+    SEPERATE(openValues = locationIndexes.map(i => true), generateIntitialScenario = true)
   }
 
-  def SEPERATE(openValues: IndexedSeq[Boolean], generateIntitialScenario:Boolean = false, gap: Double): (Double, Seq[Scenario]) = {
+  def SEPERATE(openValues: IndexedSeq[Boolean], generateIntitialScenario:Boolean = false): (Double, Seq[Scenario]) = {
 
     var terminatedDueToTimeLimit = false
 
@@ -417,7 +414,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         pricingModel.solve()
 
         if (pricingModel.getStatus == IloCplex.Status.Optimal) {
-          println(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}")          
+          print(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}".padTo(120, " ").mkString)          
           if (pricingModel.getObjValue() > EPS) {
             recordNow()
 //            pricingModel.populate()
@@ -434,13 +431,13 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
                 }              
               }
             })
-            println(s"Scearios added: ${scenariosToAdd.map { x => x.failures }.mkString(", ")}")
+            println(s"Scenarios added: ${scenariosToAdd.map { x => x.failures }.mkString(", ")}")
             if(scenariosToAdd.size == 0){            
               ret = None
             } else {
               ret = Option(scenariosToAdd)
             }
-            println(s"Get solutions pool used time: ${timeCheckout()}s")
+//            println(s"Get solutions pool used time: ${timeCheckout()}s")
             
           } else {
             println("Pricing problem found no pattern with positive reduced cost.")

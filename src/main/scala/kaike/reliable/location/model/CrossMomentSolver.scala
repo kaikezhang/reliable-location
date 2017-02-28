@@ -183,10 +183,36 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     ret
   }
   
+  def solveUFLP(): IndexedSeq[Boolean] = {
+    val cplex = new IloCplex()
+    val open = Array.tabulate(candidateDCs.size)( i => cplex.boolVar() )
+    val assign = Array.tabulate(demands.size, candidateDCs.size)((i, j) => {cplex.boolVar()})
+
+    val locationCosts = locationIndexes.map { j => cplex.prod(candidateDCs(j).fixedCosts, open(j)) }.fold(cplex.numExpr())(cplex.sum)
+    
+    val transportationCosts = (for (i <- demandIndexes; j <- locationIndexes)
+      yield cplex.prod(demands(i).demand * distance(i)(j), assign(i)(j))).fold(cplex.numExpr())(cplex.sum)
+
+    val objective = cplex.sum(locationCosts, transportationCosts)
+    cplex.addMinimize(objective)   
+    demandIndexes.foreach { i => {
+      val left = locationIndexes.map { j => assign(i)(j) }.fold(cplex.numExpr())(cplex.sum)
+      cplex.addGe(left, 1)
+    } }
+    
+    for(i <- demandIndexes; j <- locationIndexes ) {
+      cplex.addLe(assign(i)(j), open(j)) 
+    }
+    cplex.setOut(null)
+    cplex.solve()
+    locationIndexes.map { j =>cplex.getValue(open(j)) > 0.5 }
+    
+  }
+  
   def generateInitialScenarios() = {
-    val openValues: IndexedSeq[Boolean] = locationIndexes.map(i => true)
-    println(s"Generating initial scenarios assuming a solution with open locations ${locationIndexes.filter { x => openValues(x) }.to[TreeSet]}")
-    SEPERATE(openValues = locationIndexes.map(i => true), generateIntitialScenario = true)
+    val openValues: IndexedSeq[Boolean] = solveUFLP() 
+    println(s"Generating initial scenarios assuming a solution with open locations ${locationIndexes.filter { x => openValues(x) }.to[TreeSet]} -- solution for UFLP")
+    SEPERATE(openValues = openValues, generateIntitialScenario = true)
   }
 
   def SEPERATE(openValues: IndexedSeq[Boolean], generateIntitialScenario:Boolean = false): (Double, Seq[Scenario]) = {
@@ -386,7 +412,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     pricingModel.setParam(IloCplex.IntParam.PopulateLim, 100)
     
     
-    
+    recordNow("pricing")
     breakable { while (!modelInfeasible) {
       
       def solvePricingProblem(): Option[Seq[Scenario]] = {
@@ -411,9 +437,13 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
 //        pricingModel.addRangeFilter(-1E-6, Double.MaxValue, Array(ReducedCostExpr), Array(1.0))
         
         recordNow()
+        if(generateIntitialScenario){
+          pricingModel.setParam(IloCplex.DoubleParam.TiLim, 1.0)
+          pricingModel.setParam(IloCplex.DoubleParam.EpGap, 0.1)
+        }
         pricingModel.solve()
 
-        if (pricingModel.getStatus == IloCplex.Status.Optimal) {
+        if (pricingModel.getStatus == IloCplex.Status.Optimal || (generateIntitialScenario && pricingModel.getStatus == IloCplex.Status.Feasible) ) {
           print(s"Pricing problem is solved in ${timeCheckout()}s with status ${pricingModel.getStatus()} --- reduced costs = ${pricingModel.getObjValue()}".padTo(120, " ").mkString)          
           if (pricingModel.getObjValue() > EPS) {
             recordNow()
@@ -449,6 +479,11 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       }
       recordNow()
       modelZsepDual.solve()
+      
+      if(generateIntitialScenario && timeFromRecorded("pricing") > 10) {
+        println(" 10s limit reached for improving dummy solution, break")
+        break
+      }
       
       if (timeLimitReached()) {
         terminatedDueToTimeLimit = true

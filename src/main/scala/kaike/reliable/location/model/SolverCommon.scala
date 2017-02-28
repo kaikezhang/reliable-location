@@ -44,6 +44,10 @@ abstract class SolverCommon(val instance:ProblemInstance, val instructor:SolverI
     ret
   }
   
+  def timeFromRecorded(id: String = "default") = {
+    1.0 * (System.currentTimeMillis() - lastRecordTime(id)) / 1000
+  }
+  
  
   
 }

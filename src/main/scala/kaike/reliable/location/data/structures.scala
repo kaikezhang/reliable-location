@@ -315,9 +315,9 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
   private val nbRealizations = candidateLocations.size
   
   if(realizations.size == 0){
-    realizations = realizations ++ (0 until nbRealizations).map(i => 
-    generateSingletonScenario(i)).toSet
-    realizations = realizations ++ specialScenarios()
+//    realizations = realizations ++ (0 until nbRealizations).map(i => 
+//    generateSingletonScenario(i)).toSet
+//    realizations = realizations ++ specialScenarios()
     realizations  = realizations + noneFail()
     realizations  = realizations + allFailures()    
   } else {

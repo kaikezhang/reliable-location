@@ -16,7 +16,7 @@ import kaike.reliable.location.data.SolverInstructor
 
 class CrossMomentSolver(override val instance: CrossMomentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
-  val SCALE_FACTOR = 1E6
+  val SCALE_FACTOR = 1E12
   
   val crossMomentMatrix = instance.crossMomentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
 
@@ -24,7 +24,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
   crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
   println()
 
-  val randomRealizations = instance.realizations
+  val ArtificialSeedRealizations = instance.realizations
   
   var modelInfeasible = false
 
@@ -99,14 +99,14 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
           println(s"Seperate solution ${openLocs.to[TreeSet]}")
 
           val optimisticEstTransportationCosts =  getTransptCostsForScenarios(openLocs.toSet, InitialScenarios)
-          println(s"Attempt to use optimistic cut with estimation of transportation costs ${optimisticEstTransportationCosts}")
+          print(s"Attempt to use optimistic cut with estimation of transportation costs ${optimisticEstTransportationCosts}")
           
-          if(optimisticEstTransportationCosts > phiValue + 1E-6){
+          if(optimisticEstTransportationCosts > phiValue + EPS){
+        	 println("  success: optimistic cut applied") 
              addSupermodularCut(optimisticEstTransportationCosts, InitialScenarios)          
           } else {
 
           recordNow("Seperation")
-//          println("Seperate solution with column generation")
           val (trspCosts, scenarios) = SEPERATE(openValues = openValues)  
           println(s"Seperation problem is solved in ${timeCheckout("Seperation")}s --- transportation costs: ${trspCosts} for solution ${openLocs}")
 
@@ -181,37 +181,10 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       cuttingPlaneMainProblem.end()
     }
     ret
-  }
-  
-  def solveUFLP(): IndexedSeq[Boolean] = {
-    val cplex = new IloCplex()
-    val open = Array.tabulate(candidateDCs.size)( i => cplex.boolVar() )
-    val assign = Array.tabulate(demands.size, candidateDCs.size)((i, j) => {cplex.boolVar()})
-
-    val locationCosts = locationIndexes.map { j => cplex.prod(candidateDCs(j).fixedCosts, open(j)) }.fold(cplex.numExpr())(cplex.sum)
-    
-    val transportationCosts = (for (i <- demandIndexes; j <- locationIndexes)
-      yield cplex.prod(demands(i).demand * distance(i)(j), assign(i)(j))).fold(cplex.numExpr())(cplex.sum)
-
-    val objective = cplex.sum(locationCosts, transportationCosts)
-    cplex.addMinimize(objective)   
-    demandIndexes.foreach { i => {
-      val left = locationIndexes.map { j => assign(i)(j) }.fold(cplex.numExpr())(cplex.sum)
-      cplex.addGe(left, 1)
-    } }
-    
-    for(i <- demandIndexes; j <- locationIndexes ) {
-      cplex.addLe(assign(i)(j), open(j)) 
-    }
-    cplex.setOut(null)
-    cplex.solve()
-    locationIndexes.map { j =>cplex.getValue(open(j)) > 0.5 }
-    
-  }
+  } 
   
   def generateInitialScenarios() = {
-    val openValues: IndexedSeq[Boolean] = solveUFLP() 
-    println(s"Generating initial scenarios assuming a solution with open locations ${locationIndexes.filter { x => openValues(x) }.to[TreeSet]} -- solution for UFLP")
+    val openValues: IndexedSeq[Boolean] = locationIndexes.map { x => false } 
     SEPERATE(openValues = openValues, generateIntitialScenario = true)
   }
 
@@ -268,7 +241,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
     }
 
     if(generateIntitialScenario){
-      randomRealizations.foreach { scenario =>
+      ArtificialSeedRealizations.foreach { scenario =>
         modelZsepDualAddCutForScenario(scenario)
       }      
     } else {
@@ -374,7 +347,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
       breakable { while (true) {
         recordNow()
         modelZsepDual.solve()
-        println(s"Model ZsepDual solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus}")
+        print(s"Model ZsepDual solved in ${timeCheckout()}s with status ${modelZsepDual.getStatus}".padTo(60, " ").mkString)
         if (modelZsepDual.getStatus == IloCplex.Status.Optimal) {
           break
         } else if (modelZsepDual.getStatus == IloCplex.Status.Unbounded || 
@@ -399,11 +372,21 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
         }
       }}
       println("End of generating feasible scenarios")
+      println()
       unboundedModel.end()
     }
     
-//    println(modelZsepDual.getStatus)
-
+    if(generateIntitialScenario){
+      (0 until Cuts.size).foreach(i => {
+        scenarios(i).prob = modelZsepDual.getDual(Cuts(i)) / SCALE_FACTOR
+      })
+      InitialScenarios = scenarios.filter { x => x.prob > 0 }.toArray
+      
+      InitialScenarios.foreach { x => println(s"${x.failures} with probability ${x.prob}") }
+      println()
+      return (0, InitialScenarios.filter { p => p.prob > 0 })
+    }
+      
 
     var lastAddedPattern = Set.empty[Int]
     var currentObj = 0.0

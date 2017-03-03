@@ -318,8 +318,9 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
 //    realizations = realizations ++ (0 until nbRealizations).map(i => 
 //    generateSingletonScenario(i)).toSet
 //    realizations = realizations ++ specialScenarios()
-    realizations  = realizations + noneFail()
-    realizations  = realizations + allFailures()    
+//    realizations  = realizations + noneFail()
+//    realizations  = realizations + allFailures()    
+
   } else {
     realizations  = realizations + noneFail()
     realizations  = realizations + allFailures()

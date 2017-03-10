@@ -35,6 +35,14 @@ object GeoComputer {
   }
 }
 
+
+object PlaneComputer {
+  def distance(coord1: Coordinate, coord2: Coordinate): Double = {    
+    Math.sqrt((coord1.lat - coord2.lat) * (coord1.lat - coord2.lat)  + (coord1.lng - coord2.lng) * (coord1.lng - coord2.lng))
+  }
+}
+
+
 class DemandPoint(val index: Int,  val demand: Double, val emergencyCost:Double, override val lat: Double, override val lng: Double) extends Coordinate(lat, lng){
   def toJArray() = JArray(List(JInt(index), JDouble(lat), JDouble(lng) , JDouble(demand)))
 }
@@ -65,7 +73,7 @@ class ProblemInstance(val demandPoints: IndexedSeq[DemandPoint],  val candidateL
   
   // compute distance matrix in miles
   val distance = Array.tabulate(demandPoints.length, candidateLocations.length)((i,j) => {
-    GeoComputer.distance(demandPoints(i), candidateLocations(j))
+    PlaneComputer.distance(demandPoints(i), candidateLocations(j))
   })
 }
 
@@ -89,6 +97,20 @@ case class StochasticReliableLocationProblemInstance( override val demandPoints:
 
 }
 
+class ScenariosStochasticReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
+         override val candidateLocations: IndexedSeq[CandidateLocation],
+         scenarios : Seq[Scenario]) extends StochasticReliableLocationProblemInstance(demandPoints, candidateLocations){
+  override val failRate = candidateLocationIndexes.map { i => scenarios.map { x => (if(x.failures.contains(i)) 1.0 else 0.0) * x.prob }.sum }
+  println(failRate)
+}
+
+case class ScenariosReliableLocationProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],  
+                                          override val candidateLocations: IndexedSeq[CandidateLocation],
+                                          val scenarios: Seq[Scenario]) extends ReliableProblemInstance(demandPoints, candidateLocations, "Robust RUFLP Marginal"){
+  val failRate = candidateLocationIndexes.map { i => scenarios.map { x => (if(x.failures.contains(i)) 1.0 else 0.0) * x.prob }.sum }
+  
+}
+  
 case class RobustReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
                                           override val candidateLocations: IndexedSeq[CandidateLocation], 
                                           parameter: RobustReliableLocationParameter = RobustReliableLocationParameter())
@@ -102,10 +124,40 @@ case class RobustReliableLocationProblemInstance( override val demandPoints: Ind
 
 }
 
+class ScenariosRobustReliableLocationProblemInstance( override val demandPoints: IndexedSeq[DemandPoint],  
+         override val candidateLocations: IndexedSeq[CandidateLocation],
+         scenarios : Seq[Scenario]) extends RobustReliableLocationProblemInstance(demandPoints, candidateLocations){
+  override val failRate = candidateLocationIndexes.map { i => scenarios.map { x => (if(x.failures.contains(i)) 1.0 else 0.0) * x.prob }.sum }
+  println(failRate)
+}
+
 class Scenario(val failures:TreeSet[Int], var prob:Double){
   def this(failuresSeq: Seq[Int], prob:Double) = {
     this(failuresSeq.to[TreeSet], prob)
   }
+}
+
+class ScenariosCrossmomentLocationProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
+                                       override val candidateLocations: IndexedSeq[CandidateLocation],
+                                       scenarios : Seq[Scenario]) extends CrossMomentProblemInstance(demandPoints, candidateLocations) {
+  override val failRate = candidateLocationIndexes.map { i => scenarios.map { x => (if(x.failures.contains(i)) 1.0 else 0.0) * x.prob }.sum }
+  println(failRate)
+
+  def pairwiseProb(i:Int, j:Int):Double = {
+    scenarios.map { x => (if(x.failures.contains(i) && (x.failures.contains(j))) 1.0 else 0.0) * x.prob }.sum
+  }
+  
+  override val crossMomentMatrix:Array[Array[Double]] =  Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else 
+        pairwiseProb(i, j)
+    })
+
+  println("Generated cross moment matrix:")
+  crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
+  println()    
+    
 }
   
 case class CrossMomentProblemInstance(override val demandPoints: IndexedSeq[DemandPoint],
@@ -149,7 +201,8 @@ crossMomentMatrix === (i, j) => {
   """)    
     Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
       if(i == j)
-        failRate(i)
+//        failRate(i)
+        -1.0
       else 
         - 1
     })    
@@ -294,6 +347,27 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
         1.0 * countConOccurrence(i, j) / scenarios.size
     })    
   }
+   
+  def generateCrossMomentMatrixPattern7() = {
+  println("""
+(i, j) => {
+    if(i == j)
+      failRate(i)
+    else if(candidateDistance(i)(j) < 200 )
+      failRate(i) * failRate(j) * (1 + Math.exp(- candidateDistance(i)(j) / 200 ))
+    else
+      -1
+}
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        failRate(i)
+      else if(candidateDistance(i)(j) < 400 )
+        failRate(i) * failRate(j) * (1 + Math.exp(- candidateDistance(i)(j) / 400 ))
+      else
+        -1
+    })     
+  }     
   
   var realizations = Set.empty[Scenario]
   val crossMomentMatrix:Array[Array[Double]] = parameter.matrixType match {
@@ -303,23 +377,24 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     case 4 => generateCrossMomentMatrixPattern4()
     case 5 => generateCrossMomentMatrixPattern5()
     case 6 => generateCrossMomentMatrixPattern6()
+    case 7 => generateCrossMomentMatrixPattern7()
     case _ => {
       throw new IllegalArgumentException("Pattern not supported")
     }
   }
   
-  println("Generated cross moment matrix:")
-  crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
-  println()
+//  println("Generated cross moment matrix:")
+//  crossMomentMatrix.foreach { x => println(x.map { x => x.toString.padTo(25, " ").mkString }.mkString("[", ", ", "]")) }
+//  println()
   
   private val nbRealizations = candidateLocations.size
   
   if(realizations.size == 0){
-//    realizations = realizations ++ (0 until nbRealizations).map(i => 
-//    generateSingletonScenario(i)).toSet
-//    realizations = realizations ++ specialScenarios()
-//    realizations  = realizations + noneFail()
-//    realizations  = realizations + allFailures()    
+    realizations = realizations ++ (0 until nbRealizations).map(i => 
+    generateSingletonScenario(i)).toSet
+    realizations = realizations ++ specialScenarios()
+    realizations  = realizations + noneFail()
+    realizations  = realizations + allFailures()    
 
   } else {
     realizations  = realizations + noneFail()

@@ -120,7 +120,7 @@ abstract class CuttingPlaneLazyConstraintImplementation(override val instance: R
         if(finalGap < 0) finalGap = 0.0
         println(s"Final Upper bound: ${upperBound}, Lower Bound: ${lowerBound}, Gap: ${finalGap}")
         val status = if( timeLimitReached()) "Time Reached" else  "Gap Reached"
-          
+        println(s"Open ${openIndexes}")
         ret = Some(LocationSolution(instance = instance, openDCs = openDCs, assignments = assignments,
           time = timeUsed(), solver = this, objValue = Math.round(cplex.getObjValue()), gap = finalGap, status = status))
       }

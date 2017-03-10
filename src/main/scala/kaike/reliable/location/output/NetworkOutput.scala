@@ -14,6 +14,8 @@ import kaike.reliable.location.model.CrossMomentSolver
 import scala.util.control.NonFatal
 import kaike.reliable.location.model.RobustUFLPSolver
 import kaike.reliable.location.model.RUFLPSimpleCutSolver
+import kaike.reliable.location.model.CrossMomentTwoPhaseSolver
+import kaike.reliable.location.model.CrossMomentSolverAbstract
 
 object NetworkOutput {
   def jsonEncode(sol: LocationSolution, log: String) = {
@@ -38,7 +40,7 @@ object NetworkOutput {
     sol.solver match {
       case rculpSolver: RUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
-      case rculpSolver: CrossMomentSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
+      case rculpSolver: CrossMomentSolverAbstract => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
       case rculpSolver: RobustUFLPSolver => json = json ~ ("parameters" -> rculpSolver.instance.parameter.toString()) ~
         ("nbCuts" -> rculpSolver.nbCuts)
@@ -74,7 +76,7 @@ object NetworkOutput {
     sendData(jsonEncode(sol, log))
   }
   
-  def postError(model:CrossMomentSolver, log:String = "") = {
+  def postError(model:CrossMomentSolverAbstract, log:String = "") = {
    var json =
       ("numberofNodes" -> model.candidateDCs.size) ~
       ("solver" -> model.SOLVER_NAME) ~
@@ -85,6 +87,7 @@ object NetworkOutput {
       json = json ~ ("log" -> log)   
     sendData(compact(render(json)))  
   }
+   
   
   def postError(model:RUFLPSolver) = {
    var json =

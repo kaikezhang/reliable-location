@@ -26,10 +26,10 @@ class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstan
       val setupCosts = locationIndexes.map { j => openValues(j) * candidateDCs(j).fixedCosts }.sum
       
       val openDCIndexes = locationIndexes.filter(j => openValues(j) > 0.5)
-      print(s"Current solution: ${openDCIndexes.mkString("[", ", ", "]")}" )
+//      print(s"Current solution: ${openDCIndexes.mkString("[", ", ", "]")}" )
       
       val phiValue = getValue(phi)
-      println(s" with eta value ${phiValue}")      
+//      println(s" with eta value ${phiValue}")      
       
       val orderedOpenDCs = demandIndexes.map { i =>
         {
@@ -56,7 +56,7 @@ class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstan
       }
       
       val solutionTrspCosts = computeTransporationCosts(orderedOpenDCs)
-      println(s"Actual transportation costs: ${solutionTrspCosts}")
+//      println(s"Actual transportation costs: ${solutionTrspCosts}")
 
       val clb = getBestObjValue()
       val cub = setupCosts + solutionTrspCosts
@@ -64,12 +64,12 @@ class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstan
 
       
       if (lowerBound < clb){
-        println(s"Lower bound updated ${lowerBound} -> ${clb}")
+//        println(s"Lower bound updated ${lowerBound} -> ${clb}")
         lowerBound = clb
       }
 
       if (upperBound > cub){
-        println(s"Upper bound updated ${upperBound} -> ${cub}")
+//        println(s"Upper bound updated ${upperBound} -> ${cub}")
         upperBound = cub
       }
 
@@ -82,7 +82,7 @@ class RUFLPSolver(override val instance: StochasticReliableLocationProblemInstan
       }      
 
       if (Math.abs(phiValue - solutionTrspCosts) < 10E-5) {
-        println("Current eta value is greater than or equals to actual transporation costs. No cut is added.")
+//        println("Current eta value is greater than or equals to actual transporation costs. No cut is added.")
         return 
       }
       

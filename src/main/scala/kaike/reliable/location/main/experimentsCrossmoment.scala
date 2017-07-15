@@ -16,11 +16,11 @@ object experimentsCrossmoment {
   
   def main(args: Array[String]): Unit = {
 
-    val nodes = List( "20")
-    val alphas = (0.1 to 0.11 by 0.1)
-    val thetas = List( 400)
+    val nodes = List( "10", "20", "30", "50")
+    val alphas = (0.1 to 0.31 by 0.1)
+    val thetas = List( 200, 400, 800)
 
-    val matrixType = 1
+    val matrixType = 7
     val failrateType = 2
     
     for (node <- nodes; alpha <- alphas; theta <- thetas) {

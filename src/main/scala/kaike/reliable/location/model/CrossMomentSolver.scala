@@ -16,7 +16,7 @@ import kaike.reliable.location.data.SolverInstructor
 
 class CrossMomentSolver(override val instance: CrossMomentProblemInstance, override val instructor: SolverInstructor) extends SolverCommon(instance, instructor, "CuttingPlane + ColumnGen") {
 
-  val SCALE_FACTOR = 1E12
+  val SCALE_FACTOR = 1E6
   
   val crossMomentMatrix = instance.crossMomentMatrix.map { x => x.map { x => if(x > 0 ) x * SCALE_FACTOR  else x} }
 
@@ -107,7 +107,7 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
           } else {
 
           recordNow("Seperation")
-          val (trspCosts, scenarios) = SEPERATE(openValues = openValues)  
+          val (trspCosts, scenarios) = SEPARATE(openValues = openValues)  
           println(s"Seperation problem is solved in ${timeCheckout("Seperation")}s --- transportation costs: ${trspCosts} for solution ${openLocs}")
 
           if (scenarios.size == 0) {
@@ -185,10 +185,10 @@ class CrossMomentSolver(override val instance: CrossMomentProblemInstance, overr
   
   def generateInitialScenarios() = {
     val openValues: IndexedSeq[Boolean] = locationIndexes.map { x => false } 
-    SEPERATE(openValues = openValues, generateIntitialScenario = true)
+    SEPARATE(openValues = openValues, generateIntitialScenario = true)
   }
 
-  def SEPERATE(openValues: IndexedSeq[Boolean], generateIntitialScenario:Boolean = false): (Double, Seq[Scenario]) = {
+  def SEPARATE(openValues: IndexedSeq[Boolean], generateIntitialScenario:Boolean = false): (Double, Seq[Scenario]) = {
 
     var terminatedDueToTimeLimit = false
 

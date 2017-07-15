@@ -187,7 +187,9 @@ crossMomentMatrix === (i, j) => {
     else
       failRate(i) * failRate(j) * random(0.5, 1.5)
 }
-  """)    
+  """) 
+  
+   // Wrong.. (i,j) should equals to (j,i)
     Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
       if(i == j)
         failRate(i)
@@ -295,6 +297,24 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     })    
   }
   
+  def generateCrossMomentMatrixPattern7() = {
+  println("""
+crossMomentMatrix === (i, j) => {
+    if(i == j)
+      alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))
+    else
+      alpha * Math.exp(-( (GeoComputer.distance(candidateLocations(i), newOrleans) + GeoComputer.distance(candidateLocations(j), newOrleans)) / theta))
+}
+  """)    
+    Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
+      if(i == j)
+        alpha * Math.exp(-(GeoComputer.distance(candidateLocations(i), newOrleans) / theta))
+      else
+        alpha * Math.exp(-( (GeoComputer.distance(candidateLocations(i), newOrleans) + GeoComputer.distance(candidateLocations(j), newOrleans)) / theta))
+    })    
+  }
+  
+   
   var realizations = Set.empty[Scenario]
   val crossMomentMatrix:Array[Array[Double]] = parameter.matrixType match {
     case 1 => generateCrossMomentMatrixPattern1()
@@ -303,6 +323,7 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
     case 4 => generateCrossMomentMatrixPattern4()
     case 5 => generateCrossMomentMatrixPattern5()
     case 6 => generateCrossMomentMatrixPattern6()
+    case 7 => generateCrossMomentMatrixPattern7()
     case _ => {
       throw new IllegalArgumentException("Pattern not supported")
     }
@@ -315,12 +336,11 @@ Array.tabulate(candidateLocations.size, candidateLocations.size)((i, j) => {
   private val nbRealizations = candidateLocations.size
   
   if(realizations.size == 0){
-//    realizations = realizations ++ (0 until nbRealizations).map(i => 
-//    generateSingletonScenario(i)).toSet
-//    realizations = realizations ++ specialScenarios()
-//    realizations  = realizations + noneFail()
-//    realizations  = realizations + allFailures()    
-
+    realizations = realizations ++ (0 until nbRealizations).map(i => 
+    generateSingletonScenario(i)).toSet
+    realizations = realizations ++ specialScenarios()
+    realizations  = realizations + noneFail()
+    realizations  = realizations + allFailures()    
   } else {
     realizations  = realizations + noneFail()
     realizations  = realizations + allFailures()
